@@ -1,73 +1,91 @@
-# React + TypeScript + Vite
+# 🔍 Sentry Config Analyzer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An AI-powered tool to analyze Sentry SDK configurations and identify problems. Perfect for customer support and sales engineering calls.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 📝 Paste customer's `Sentry.init()` code
+- 🐛 Describe issues they're experiencing
+- 🤖 Get instant AI analysis powered by Claude
+- ✅ See what's configured correctly
+- ❌ Identify problems with fix suggestions
+- 💡 Get optimization recommendations
 
-## React Compiler
+## Setup
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+1. **Clone and install:**
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+2. **Set up API key:**
+```bash
+cp .env.example .env
 ```
+
+Edit `.env` and add your Anthropic API key:
+```
+VITE_ANTHROPIC_API_KEY=your_api_key_here
+```
+
+Get your API key from: https://console.anthropic.com/settings/keys
+
+3. **Run dev server:**
+```bash
+npm run dev
+```
+
+4. **Open:** http://localhost:5174/
+
+## Usage
+
+1. Select the SDK type (JavaScript, Python, Ruby, etc.)
+2. Paste the customer's `Sentry.init()` configuration code
+3. Describe what issues they're facing
+4. Click "Analyze Configuration"
+5. Get instant recommendations with code fixes
+
+## Example
+
+**Input:**
+```javascript
+Sentry.init({
+  dsn: "https://...",
+  tracesSampleRate: 0.01,
+  environment: "production"
+});
+```
+
+**Issues:** "Not seeing performance data"
+
+**Output:**
+- ❌ Problem: `tracesSampleRate` is too low (0.01)
+  - Only 1% of transactions captured
+  - Fix: Increase to `0.1` for better visibility
+
+## Deployment
+
+Deploy to Vercel:
+```bash
+vercel
+```
+
+Make sure to add `VITE_ANTHROPIC_API_KEY` to your Vercel environment variables.
+
+## Tech Stack
+
+- React + TypeScript
+- Vite
+- Tailwind CSS
+- Claude API (Anthropic)
+
+## Security Note
+
+⚠️ This demo uses `dangerouslyAllowBrowser: true` for the Anthropic SDK. For production, you should:
+1. Create a backend API endpoint
+2. Make API calls server-side
+3. Never expose API keys in the browser
+
+## License
+
+MIT

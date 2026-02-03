@@ -1,10 +1,5 @@
 import { useState } from 'react'
-
-interface AnalysisResult {
-  correctConfig: string[];
-  problems: Array<{ title: string; description: string; fix: string }>;
-  suggestions: Array<{ title: string; description: string }>;
-}
+import { analyzeConfig, type AnalysisResult } from './services/analyzer'
 
 function App() {
   const [configCode, setConfigCode] = useState('')
@@ -20,42 +15,17 @@ function App() {
     }
 
     setAnalyzing(true)
+    setResult(null) // Clear previous results
 
-    // TODO: Call LLM API for analysis
-    // For now, mock response
-    setTimeout(() => {
-      setResult({
-        correctConfig: [
-          'DSN is properly configured',
-          'Environment is set to "production"',
-        ],
-        problems: [
-          {
-            title: 'tracesSampleRate is too low (0.01)',
-            description: 'Only 1% of transactions are being captured. This explains why performance data is sparse.',
-            fix: 'tracesSampleRate: 0.1, // Capture 10% of transactions'
-          },
-          {
-            title: 'Missing Replay integration',
-            description: 'Session Replay is not configured. This would help debug user-reported issues.',
-            fix: `integrations: [
-  new Sentry.Replay({
-    maskAllText: false,
-    blockAllMedia: false,
-  }),
-],
-replaysSessionSampleRate: 0.1,`
-          }
-        ],
-        suggestions: [
-          {
-            title: 'Add custom tags for better filtering',
-            description: 'Consider adding tags like "tier", "region", or "feature_flags" to help categorize issues.'
-          }
-        ]
-      })
+    try {
+      const analysis = await analyzeConfig(configCode, issueContext, sdkType)
+      setResult(analysis)
+    } catch (error) {
+      console.error('Analysis error:', error)
+      alert(`Error analyzing configuration: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
       setAnalyzing(false)
-    }, 2000)
+    }
   }
 
   return (
