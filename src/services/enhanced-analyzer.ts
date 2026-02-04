@@ -12,10 +12,12 @@ export interface EnhancedAnalysisOptions {
 }
 
 export interface StreamEvent {
-  type: 'thinking' | 'thinking_start' | 'thinking_complete' | 'text' | 'done' | 'error';
+  type: 'thinking' | 'thinking_start' | 'thinking_complete' | 'progress' | 'complete' | 'error';
   content?: string;
-  fullText?: string;
+  length?: number;
+  result?: any;
   error?: string;
+  rawText?: string;
 }
 
 export interface ChatMessage {

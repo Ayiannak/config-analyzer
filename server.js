@@ -122,16 +122,47 @@ Return ONLY valid JSON matching the specified structure. Do not include markdown
           res.write(`data: ${JSON.stringify({ type: 'thinking', content: event.delta.thinking })}\n\n`);
         } else if (event.delta.type === 'text_delta') {
           fullText += event.delta.text;
-          res.write(`data: ${JSON.stringify({ type: 'text', content: event.delta.text })}\n\n`);
+          // Stream progress indicator only, not the actual text (to avoid breaking JSON mid-string)
+          res.write(`data: ${JSON.stringify({ type: 'progress', length: fullText.length })}\n\n`);
         }
       } else if (event.type === 'content_block_stop') {
         if (thinkingContent) {
           res.write(`data: ${JSON.stringify({ type: 'thinking_complete' })}\n\n`);
         }
       } else if (event.type === 'message_stop') {
-        // Split large payloads to avoid SSE breaking
-        const doneEvent = JSON.stringify({ type: 'done', fullText });
-        res.write(`data: ${doneEvent}\n\n`);
+        // Parse and validate JSON on server before sending to client
+        try {
+          let cleanedText = fullText.trim();
+
+          // Remove markdown code blocks if present
+          if (cleanedText.startsWith('```json')) {
+            cleanedText = cleanedText.replace(/^```json\n?/, '').replace(/\n?```$/s, '');
+          } else if (cleanedText.startsWith('```')) {
+            cleanedText = cleanedText.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/s, '');
+          }
+
+          // Extract JSON object
+          const jsonStart = cleanedText.indexOf('{');
+          const jsonEnd = cleanedText.lastIndexOf('}');
+
+          if (jsonStart !== -1 && jsonEnd !== -1) {
+            cleanedText = cleanedText.substring(jsonStart, jsonEnd + 1);
+          }
+
+          // Validate it's valid JSON
+          const parsed = JSON.parse(cleanedText);
+
+          // Send the validated, complete result
+          res.write(`data: ${JSON.stringify({ type: 'complete', result: parsed })}\n\n`);
+        } catch (parseError) {
+          console.error('Server-side JSON parse error:', parseError);
+          console.error('Raw text length:', fullText.length);
+          res.write(`data: ${JSON.stringify({
+            type: 'error',
+            error: `Failed to parse response: ${parseError.message}`,
+            rawText: fullText.substring(0, 1000) // Send first 1000 chars for debugging
+          })}\n\n`);
+        }
       }
     }
 

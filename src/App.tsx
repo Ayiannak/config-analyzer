@@ -27,6 +27,7 @@ function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [sendingMessage, setSendingMessage] = useState(false)
+  const chatSectionRef = useRef<HTMLDivElement>(null)
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; content: string }>>([])
   const [isDragging, setIsDragging] = useState(false)
   const [maskedSecrets, setMaskedSecrets] = useState<Array<{ type: string; count: number }>>([])
@@ -39,6 +40,44 @@ function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
+
+  // Auto-expand chat when results are available
+  useEffect(() => {
+    if (result && !showChat) {
+      setShowChat(true)
+    }
+  }, [result, showChat])
+
+  // Scroll to chat section
+  const scrollToChat = () => {
+    chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (!showChat) setShowChat(true)
+  }
+
+  // Mask DSNs in analysis results
+  const maskResultDSNs = (result: AnalysisResult): AnalysisResult => {
+    const dsnPattern = /https?:\/\/[a-f0-9]{32}@[a-z0-9-]+\.ingest\.[a-z]+\.sentry\.io\/\d+/gi
+    const maskDSN = (text: string) => text.replace(dsnPattern, 'https://***MASKED_DSN***@your-org.ingest.sentry.io/***')
+
+    const maskObject = (obj: any): any => {
+      if (typeof obj === 'string') {
+        return maskDSN(obj)
+      }
+      if (Array.isArray(obj)) {
+        return obj.map(maskObject)
+      }
+      if (obj && typeof obj === 'object') {
+        const masked: any = {}
+        for (const key in obj) {
+          masked[key] = maskObject(obj[key])
+        }
+        return masked
+      }
+      return obj
+    }
+
+    return maskObject(result)
+  }
 
   // Update configCode whenever files change
   useEffect(() => {
@@ -163,9 +202,9 @@ function App() {
     try {
       if (useStreaming) {
         // Streaming mode
-        let fullText = ''
         let thinkingText = ''
-        let estimatedTotalLength = 3000 // Estimated JSON response length
+        let currentLength = 0
+        const estimatedTotalLength = 5000
 
         await analyzeConfigStreaming(
           {
@@ -192,55 +231,33 @@ function App() {
                 setThinking(prev => prev + '\n\n✅ Analysis complete')
                 setAnalysisProgress(35)
                 break
-              case 'text':
-                fullText += event.content
-                setStreamingText(fullText)
-                // Progress during text streaming: 35% to 95%
-                const textProgress = Math.min(95, 35 + ((fullText.length / estimatedTotalLength) * 60))
+              case 'progress':
+                // Show progress based on response length
+                currentLength = event.length || 0
+                setStreamingText(`Receiving response... ${currentLength} characters`)
+                const textProgress = Math.min(95, 35 + ((currentLength / estimatedTotalLength) * 60))
                 setAnalysisProgress(textProgress)
                 break
-              case 'done':
+              case 'complete':
                 setAnalysisProgress(100)
-                // Parse the final JSON using accumulated fullText from 'text' events
+                // Server has already validated and parsed the JSON
                 try {
-                  // Use the client-side accumulated fullText, not event.fullText
-                  let jsonText = fullText.trim()
-
-                  console.log('Full text length:', jsonText.length)
-                  console.log('First 200 chars:', jsonText.substring(0, 200))
-                  console.log('Last 200 chars:', jsonText.substring(jsonText.length - 200))
-
-                  // Remove markdown code blocks
-                  if (jsonText.startsWith('```json')) {
-                    jsonText = jsonText.replace(/^```json\n?/, '').replace(/\n?```$/s, '')
-                  } else if (jsonText.startsWith('```')) {
-                    jsonText = jsonText.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/s, '')
-                  }
-
-                  // Find JSON object boundaries if there's extra text
-                  const jsonStart = jsonText.indexOf('{')
-                  const jsonEnd = jsonText.lastIndexOf('}')
-
-                  if (jsonStart !== -1 && jsonEnd !== -1) {
-                    jsonText = jsonText.substring(jsonStart, jsonEnd + 1)
-                  }
-
-                  console.log('Attempting to parse JSON of length:', jsonText.length)
-                  const parsed = JSON.parse(jsonText)
-
-                  setResult(parsed)
-                  if (parsed.completeFixedConfig) {
-                    setFixedConfig(parsed.completeFixedConfig)
+                  const parsed = event.result
+                  const maskedResult = maskResultDSNs(parsed)
+                  setResult(maskedResult)
+                  if (maskedResult.completeFixedConfig) {
+                    setFixedConfig(maskedResult.completeFixedConfig)
                   }
                 } catch (e) {
-                  console.error('Failed to parse result:', e)
-                  console.error('Accumulated text length:', fullText.length)
-                  console.error('Full accumulated text:', fullText)
-                  alert('Failed to parse analysis result. Check console for details.')
+                  console.error('Failed to process result:', e)
+                  alert(`Failed to process analysis result: ${e instanceof Error ? e.message : 'Unknown error'}`)
                 }
                 break
               case 'error':
                 alert(`Error: ${event.error}`)
+                if (event.rawText) {
+                  console.error('Raw response text:', event.rawText)
+                }
                 break
             }
           }
@@ -257,14 +274,15 @@ function App() {
         })
 
         setAnalysisProgress(100)
-        setResult(analysis)
+        const maskedAnalysis = maskResultDSNs(analysis)
+        setResult(maskedAnalysis)
 
-        if (analysis.thinking) {
-          setThinking(analysis.thinking)
+        if (maskedAnalysis.thinking) {
+          setThinking(maskedAnalysis.thinking)
         }
 
-        if (analysis.completeFixedConfig) {
-          setFixedConfig(analysis.completeFixedConfig)
+        if (maskedAnalysis.completeFixedConfig) {
+          setFixedConfig(maskedAnalysis.completeFixedConfig)
         }
       }
     } catch (error) {
@@ -280,7 +298,10 @@ function App() {
 
     try {
       const fixed = await generateFixedConfig(configCode, result.problems, sdkType, model)
-      setFixedConfig(fixed)
+      // Mask DSN in the generated fixed config
+      const dsnPattern = /https?:\/\/[a-f0-9]{32}@[a-z0-9-]+\.ingest\.[a-z]+\.sentry\.io\/\d+/gi
+      const maskedFixed = fixed.replace(dsnPattern, 'https://***MASKED_DSN***@your-org.ingest.sentry.io/***')
+      setFixedConfig(maskedFixed)
     } catch (error) {
       console.error('Error generating fixed config:', error)
       alert('Failed to generate fixed configuration')
@@ -310,7 +331,10 @@ function App() {
 
     try {
       const response = await chatAboutConfig(updatedMessages, sdkType, configCode, model)
-      setChatMessages([...updatedMessages, { role: 'assistant', content: response }])
+      // Mask DSN in chat responses
+      const dsnPattern = /https?:\/\/[a-f0-9]{32}@[a-z0-9-]+\.ingest\.[a-z]+\.sentry\.io\/\d+/gi
+      const maskedResponse = response.replace(dsnPattern, 'https://***MASKED_DSN***@your-org.ingest.sentry.io/***')
+      setChatMessages([...updatedMessages, { role: 'assistant', content: maskedResponse }])
     } catch (error) {
       console.error('Chat error:', error)
       alert('Failed to send message')
@@ -780,7 +804,7 @@ function App() {
             )}
 
             {/* Interactive Chat */}
-            <div className="card p-6">
+            <div ref={chatSectionRef} className="card p-6 ring-2 ring-primary/50 shadow-lg shadow-primary/20">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-semibold flex items-center gap-2">
                   <span className="text-primary">💬</span>
@@ -848,6 +872,17 @@ function App() {
               )}
             </div>
           </div>
+        )}
+
+        {/* Floating Chat Button - Only show when results exist */}
+        {result && (
+          <button
+            onClick={scrollToChat}
+            className="fixed bottom-8 right-8 bg-primary text-white p-4 rounded-full shadow-lg hover:bg-primary/90 transition-all transform hover:scale-110 z-50 ring-4 ring-primary/30"
+            title="Jump to Chat with Claude"
+          >
+            <span className="text-2xl">💬</span>
+          </button>
         )}
       </div>
     </div>
