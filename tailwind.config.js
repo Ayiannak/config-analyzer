@@ -7,32 +7,39 @@ export default {
   theme: {
     extend: {
       colors: {
-        sentry: {
-          purple: {
-            DEFAULT: '#6C5FC7',
-            50: '#F5F3FF',
-            100: '#EBE8FF',
-            200: '#D9D4FF',
-            300: '#BFB5FF',
-            400: '#A08DFF',
-            500: '#6C5FC7',
-            600: '#5A4DB5',
-            700: '#4A3F99',
-            800: '#3D357D',
-            900: '#1D1127',
-          },
-          pink: {
-            DEFAULT: '#F55459',
-            500: '#F55459',
-          },
-          coral: '#F55459',
-        }
+        primary: {
+          DEFAULT: '#FF9500',
+          50: '#FFF5E6',
+          100: '#FFE6C2',
+          200: '#FFD699',
+          300: '#FFC670',
+          400: '#FFB247',
+          500: '#FF9500',
+          600: '#E68600',
+          700: '#CC7700',
+          800: '#B36800',
+          900: '#805000',
+        },
+        secondary: {
+          DEFAULT: '#00CED1',
+          50: '#E6FFFF',
+          100: '#B3FFFF',
+          200: '#80FFFF',
+          300: '#4DFFFF',
+          400: '#1AFFFF',
+          500: '#00CED1',
+          600: '#00B8BA',
+          700: '#00A2A4',
+          800: '#008C8E',
+          900: '#006365',
+        },
       },
       backgroundImage: {
-        'sentry-gradient': 'linear-gradient(135deg, #6C5FC7 0%, #F55459 100%)',
+        'accent-gradient': 'linear-gradient(135deg, #FF9500 0%, #00CED1 100%)',
       },
       boxShadow: {
-        'sentry': '0 10px 40px -10px rgba(108, 95, 199, 0.5)',
+        'accent': '0 10px 40px -10px rgba(255, 149, 0, 0.5)',
+        'secondary': '0 10px 40px -10px rgba(0, 206, 209, 0.5)',
       }
     },
   },
