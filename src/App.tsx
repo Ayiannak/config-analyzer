@@ -28,6 +28,7 @@ function App() {
   const [chatInput, setChatInput] = useState('')
   const [sendingMessage, setSendingMessage] = useState(false)
   const chatSectionRef = useRef<HTMLDivElement>(null)
+  const fixedConfigSectionRef = useRef<HTMLDivElement>(null)
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; content: string }>>([])
   const [isDragging, setIsDragging] = useState(false)
   const [maskedSecrets, setMaskedSecrets] = useState<Array<{ type: string; count: number }>>([])
@@ -52,6 +53,11 @@ function App() {
   const scrollToChat = () => {
     chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     if (!showChat) setShowChat(true)
+  }
+
+  // Scroll to fixed config section
+  const scrollToFixedConfig = () => {
+    fixedConfigSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   // Mask DSNs in analysis results
@@ -684,20 +690,38 @@ function App() {
           <div className="space-y-6">
             {/* Results Header with Export Button */}
             <div className="card p-6 bg-gradient-to-r from-primary/10 to-secondary/10 border-l-4 border-primary">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <h2 className="text-3xl font-bold text-white mb-2">📊 Analysis Complete</h2>
                   <p className="text-gray-300">
                     {result.correctConfig.length} items correct • {result.problems.length} problems found • {result.suggestions.length} suggestions
                   </p>
                 </div>
-                <button
-                  onClick={handleExportPDF}
-                  className="px-6 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl"
-                >
-                  <span className="text-xl">📄</span>
-                  Export to PDF
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={scrollToChat}
+                    className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-semibold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl"
+                  >
+                    <span className="text-xl">💬</span>
+                    Chat
+                  </button>
+                  {fixedConfig && (
+                    <button
+                      onClick={scrollToFixedConfig}
+                      className="px-6 py-3 bg-secondary hover:bg-secondary/90 text-white rounded-lg font-semibold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl"
+                    >
+                      <span className="text-xl">🔧</span>
+                      See Full Config
+                    </button>
+                  )}
+                  <button
+                    onClick={handleExportPDF}
+                    className="px-6 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl"
+                  >
+                    <span className="text-xl">📄</span>
+                    Export to PDF
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -759,7 +783,7 @@ function App() {
 
             {/* Complete Fixed Configuration */}
             {fixedConfig && (
-              <div className="card p-6">
+              <div ref={fixedConfigSectionRef} className="card p-6">
                 <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
                   <span className="text-secondary">🔧</span>
                   <span>Complete Fixed Configuration</span>

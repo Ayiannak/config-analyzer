@@ -22,12 +22,73 @@ const MODELS = {
   'opus-4.5': 'claude-opus-4-5-20251101'
 };
 
+// Helper to try to fix common JSON issues
+function attemptJSONRepair(text) {
+  // If the JSON is truncated mid-string, try to close it
+  // Count open braces/brackets
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"' && !escaped) {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '{') openBraces++;
+      if (char === '}') openBraces--;
+      if (char === '[') openBrackets++;
+      if (char === ']') openBrackets--;
+    }
+  }
+
+  // If we're in a string, try to close it
+  if (inString) {
+    text += '"';
+  }
+
+  // Close any unclosed arrays
+  while (openBrackets > 0) {
+    text += ']';
+    openBrackets--;
+  }
+
+  // Close any unclosed objects
+  while (openBraces > 0) {
+    text += '}';
+    openBraces--;
+  }
+
+  return text;
+}
+
 const SYSTEM_PROMPT = `You are a Sentry configuration expert. Analyze Sentry SDK initialization code and identify:
 1. What's configured correctly
 2. Configuration problems that explain the reported issues
 3. Additional optimization suggestions
 
 Always provide specific code fixes in the same language/format as the input.
+
+IMPORTANT: Return your analysis as valid JSON. When including code in strings:
+- Escape all backslashes as \\\\
+- Escape all double quotes as \\"
+- Escape all newlines as \\n
+- Be extra careful with regex patterns (e.g., \\d+ should be \\\\d+)
 
 Return your analysis as a JSON object with this structure:
 {
@@ -149,14 +210,44 @@ Return ONLY valid JSON matching the specified structure. Do not include markdown
             cleanedText = cleanedText.substring(jsonStart, jsonEnd + 1);
           }
 
-          // Validate it's valid JSON
-          const parsed = JSON.parse(cleanedText);
+          console.log('Attempting to parse JSON, length:', cleanedText.length);
+
+          // Try to parse, if it fails, attempt repair
+          let parsed;
+          try {
+            parsed = JSON.parse(cleanedText);
+          } catch (firstError) {
+            console.log('First parse failed, attempting repair...');
+            const repairedText = attemptJSONRepair(cleanedText);
+            console.log('Repaired text length:', repairedText.length);
+            parsed = JSON.parse(repairedText); // This will throw if repair didn't work
+          }
+
+          console.log('Successfully parsed JSON');
+          console.log('Sending result with fields:', Object.keys(parsed));
 
           // Send the validated, complete result
-          res.write(`data: ${JSON.stringify({ type: 'complete', result: parsed })}\n\n`);
+          // Use a safer approach - send it in chunks if needed
+          const resultPayload = { type: 'complete', result: parsed };
+          const resultString = JSON.stringify(resultPayload);
+
+          console.log('Result payload size:', resultString.length);
+
+          res.write(`data: ${resultString}\n\n`);
         } catch (parseError) {
           console.error('Server-side JSON parse error:', parseError);
+          console.error('Error at position:', parseError.message.match(/position (\d+)/)?.[1]);
           console.error('Raw text length:', fullText.length);
+
+          // Log context around the error
+          const match = parseError.message.match(/position (\d+)/);
+          if (match) {
+            const pos = parseInt(match[1]);
+            const start = Math.max(0, pos - 100);
+            const end = Math.min(fullText.length, pos + 100);
+            console.error('Context around error:', fullText.substring(start, end));
+          }
+
           res.write(`data: ${JSON.stringify({
             type: 'error',
             error: `Failed to parse response: ${parseError.message}`,
