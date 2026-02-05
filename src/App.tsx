@@ -166,7 +166,20 @@ function App() {
           alert('Failed to read one or more files')
 
           span.setStatus({ code: 2, message: 'Upload failed' })
-          Sentry.captureException(error)
+          Sentry.captureException(error, {
+            level: 'error',
+            tags: {
+              operation: 'config.file_upload',
+            },
+            contexts: {
+              upload: {
+                file_count: fileCount,
+                total_size_bytes: totalSize,
+                file_types: Array.from(files).map(f => f.type).join(', '),
+              }
+            },
+            fingerprint: ['file-upload-error']
+          })
           throw error
         }
       }
@@ -373,9 +386,25 @@ function App() {
           console.error('Analysis error:', error)
           alert(`Error analyzing configuration: ${error instanceof Error ? error.message : 'Unknown error'}`)
 
-          // Mark span as error and capture exception
+          // Mark span as error and capture exception with detailed context
           span.setStatus({ code: 2, message: 'Analysis failed' })
-          Sentry.captureException(error)
+          Sentry.captureException(error, {
+            level: 'error',
+            tags: {
+              operation: 'config.analysis',
+              sdk_type: sdkType,
+              model: model,
+              streaming: useStreaming.toString(),
+              extended_thinking: useExtendedThinking.toString(),
+            },
+            contexts: {
+              analysis: {
+                config_length: configCode.length,
+                has_issue_context: !!issueContext,
+              }
+            },
+            fingerprint: ['config-analysis-error', sdkType, model]
+          })
           throw error
         } finally {
           // Calculate and record time to analysis
@@ -431,7 +460,21 @@ function App() {
           alert('Failed to generate fixed configuration')
 
           span.setStatus({ code: 2, message: 'Generation failed' })
-          Sentry.captureException(error)
+          Sentry.captureException(error, {
+            level: 'error',
+            tags: {
+              operation: 'config.generate_fixed',
+              sdk_type: sdkType,
+              model: model,
+            },
+            contexts: {
+              generation: {
+                problem_count: result.problems.length,
+                config_length: configCode.length,
+              }
+            },
+            fingerprint: ['generate-fixed-config-error', model]
+          })
           throw error
         } finally {
           const duration = Date.now() - startTime
@@ -483,7 +526,21 @@ function App() {
           })
         } catch (error) {
           span.setStatus({ code: 2, message: 'Export failed' })
-          Sentry.captureException(error)
+          Sentry.captureException(error, {
+            level: 'error',
+            tags: {
+              operation: 'config.export_pdf',
+              sdk_type: sdkType,
+              model: model,
+            },
+            contexts: {
+              export: {
+                problem_count: result.problems.length,
+                has_fixed_config: !!fixedConfig,
+              }
+            },
+            fingerprint: ['export-pdf-error']
+          })
           throw error
         }
       }
@@ -536,7 +593,22 @@ function App() {
           alert('Failed to send message')
 
           span.setStatus({ code: 2, message: 'Chat failed' })
-          Sentry.captureException(error)
+          Sentry.captureException(error, {
+            level: 'error',
+            tags: {
+              operation: 'config.chat',
+              sdk_type: sdkType,
+              model: model,
+            },
+            contexts: {
+              chat: {
+                message_count: updatedMessages.length,
+                message_length: chatInput.length,
+                has_previous_context: chatMessages.length > 0,
+              }
+            },
+            fingerprint: ['chat-error', model]
+          })
           throw error
         } finally {
           setSendingMessage(false)

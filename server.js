@@ -323,7 +323,22 @@ Return ONLY valid JSON matching the specified structure. Do not include markdown
         const duration = Date.now() - startTime;
         span.setAttribute('api.duration_ms', duration);
         span.setStatus({ code: 2, message: error.message });
-        Sentry.captureException(error);
+        Sentry.captureException(error, {
+          level: 'error',
+          tags: {
+            operation: 'api.analyze_stream',
+            sdk_type: req.body.sdkType,
+            model: req.body.model || 'sonnet-4',
+            extended_thinking: req.body.useExtendedThinking || false,
+          },
+          contexts: {
+            request: {
+              has_issue_context: !!req.body.issueContext,
+              config_length: req.body.configCode?.length || 0,
+            }
+          },
+          fingerprint: ['api-analyze-stream-error', req.body.model]
+        });
 
         res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
         res.end();
@@ -464,7 +479,22 @@ Return ONLY valid JSON matching the specified structure. Do not include markdown
         const duration = Date.now() - startTime;
         span.setAttribute('api.duration_ms', duration);
         span.setStatus({ code: 2, message: error.message });
-        Sentry.captureException(error);
+        Sentry.captureException(error, {
+          level: 'error',
+          tags: {
+            operation: 'api.analyze',
+            sdk_type: req.body.sdkType,
+            model: req.body.model || 'sonnet-4',
+            extended_thinking: req.body.useExtendedThinking || false,
+          },
+          contexts: {
+            request: {
+              has_issue_context: !!req.body.issueContext,
+              config_length: req.body.configCode?.length || 0,
+            }
+          },
+          fingerprint: ['api-analyze-error', req.body.model]
+        });
 
         res.status(500).json({
           error: error.message || 'Failed to analyze configuration'
@@ -540,7 +570,21 @@ Provide clear, helpful answers to their questions about Sentry configuration. Wh
         const duration = Date.now() - startTime;
         span.setAttribute('api.duration_ms', duration);
         span.setStatus({ code: 2, message: error.message });
-        Sentry.captureException(error);
+        Sentry.captureException(error, {
+          level: 'error',
+          tags: {
+            operation: 'api.chat',
+            sdk_type: req.body.sdkType,
+            model: req.body.model || 'sonnet-4',
+          },
+          contexts: {
+            request: {
+              message_count: req.body.messages?.length || 0,
+              config_length: req.body.configCode?.length || 0,
+            }
+          },
+          fingerprint: ['api-chat-error', req.body.model]
+        });
 
         res.status(500).json({
           error: error.message || 'Failed to process chat message'
@@ -629,7 +673,21 @@ Generate a complete, production-ready Sentry.init() configuration that fixes all
         const duration = Date.now() - startTime;
         span.setAttribute('api.duration_ms', duration);
         span.setStatus({ code: 2, message: error.message });
-        Sentry.captureException(error);
+        Sentry.captureException(error, {
+          level: 'error',
+          tags: {
+            operation: 'api.generate_fixed_config',
+            sdk_type: req.body.sdkType,
+            model: req.body.model || 'sonnet-4',
+          },
+          contexts: {
+            request: {
+              problem_count: req.body.problems?.length || 0,
+              config_length: req.body.configCode?.length || 0,
+            }
+          },
+          fingerprint: ['api-generate-fixed-config-error', req.body.model]
+        });
 
         res.status(500).json({
           error: error.message || 'Failed to generate fixed configuration'
