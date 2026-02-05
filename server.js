@@ -3,10 +3,24 @@ import cors from 'cors';
 import Anthropic from '@anthropic-ai/sdk';
 import dotenv from 'dotenv';
 import { maskSensitiveData } from './server-security.js';
+import * as Sentry from '@sentry/node';
 
 dotenv.config();
 
 const app = express();
+
+// Initialize Sentry - must be done before any other middleware
+Sentry.init({
+  dsn: "https://0587b77e0380f663c2bae2a3d279044f@o4510819177529344.ingest.us.sentry.io/4510835542982656",
+  tracesSampleRate: 1.0,
+  integrations: [
+    // Enable HTTP instrumentation
+    Sentry.httpIntegration(),
+    // Enable Express instrumentation
+    Sentry.expressIntegration({ app }),
+  ],
+});
+
 const PORT = 3001;
 
 app.use(cors());
@@ -111,12 +125,31 @@ Return your analysis as a JSON object with this structure:
 
 // Streaming analysis endpoint with extended thinking
 app.post('/api/analyze-stream', async (req, res) => {
-  try {
-    const { configCode, issueContext, sdkType, model = 'sonnet-4', useExtendedThinking = false } = req.body;
+  const startTime = Date.now();
 
-    if (!configCode) {
-      return res.status(400).json({ error: 'Configuration code is required' });
-    }
+  return await Sentry.startSpan(
+    {
+      name: 'POST /api/analyze-stream',
+      op: 'http.server',
+      attributes: {
+        'http.method': 'POST',
+        'http.route': '/api/analyze-stream',
+      }
+    },
+    async (span) => {
+      try {
+        const { configCode, issueContext, sdkType, model = 'sonnet-4', useExtendedThinking = false } = req.body;
+
+        // Add request attributes
+        span.setAttribute('api.sdk_type', sdkType);
+        span.setAttribute('api.model', model);
+        span.setAttribute('api.extended_thinking', useExtendedThinking);
+        span.setAttribute('api.has_issue_context', !!issueContext);
+
+        if (!configCode) {
+          span.setStatus({ code: 2, message: 'Missing config code' });
+          return res.status(400).json({ error: 'Configuration code is required' });
+        }
 
     // Server-side security: mask any sensitive data that might have been missed
     const configMask = maskSensitiveData(configCode);
@@ -257,22 +290,58 @@ Return ONLY valid JSON matching the specified structure. Do not include markdown
       }
     }
 
-    res.end();
-  } catch (error) {
-    console.error('Error in streaming analysis:', error);
-    res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
-    res.end();
-  }
+        const duration = Date.now() - startTime;
+        span.setAttribute('api.duration_ms', duration);
+        span.setAttribute('api.response_length', fullText.length);
+        span.setStatus({ code: 1, message: 'ok' });
+
+        Sentry.metrics.distribution('api.analyze_stream.duration', duration, {
+          unit: 'millisecond',
+        });
+
+        res.end();
+      } catch (error) {
+        console.error('Error in streaming analysis:', error);
+
+        const duration = Date.now() - startTime;
+        span.setAttribute('api.duration_ms', duration);
+        span.setStatus({ code: 2, message: error.message });
+        Sentry.captureException(error);
+
+        res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
+        res.end();
+      }
+    }
+  );
 });
 
 // Original non-streaming endpoint (kept for compatibility)
 app.post('/api/analyze', async (req, res) => {
-  try {
-    const { configCode, issueContext, sdkType, model = 'sonnet-4', useExtendedThinking = false } = req.body;
+  const startTime = Date.now();
 
-    if (!configCode) {
-      return res.status(400).json({ error: 'Configuration code is required' });
-    }
+  return await Sentry.startSpan(
+    {
+      name: 'POST /api/analyze',
+      op: 'http.server',
+      attributes: {
+        'http.method': 'POST',
+        'http.route': '/api/analyze',
+      }
+    },
+    async (span) => {
+      try {
+        const { configCode, issueContext, sdkType, model = 'sonnet-4', useExtendedThinking = false } = req.body;
+
+        // Add request attributes
+        span.setAttribute('api.sdk_type', sdkType);
+        span.setAttribute('api.model', model);
+        span.setAttribute('api.extended_thinking', useExtendedThinking);
+        span.setAttribute('api.has_issue_context', !!issueContext);
+
+        if (!configCode) {
+          span.setStatus({ code: 2, message: 'Missing config code' });
+          return res.status(400).json({ error: 'Configuration code is required' });
+        }
 
     // Server-side security: mask any sensitive data that might have been missed
     const configMask = maskSensitiveData(configCode);
@@ -358,28 +427,62 @@ Return ONLY valid JSON matching the specified structure. Do not include markdown
       throw new Error('Invalid response structure from Claude');
     }
 
-    // Include thinking content if available
-    if (thinkingContent) {
-      result.thinking = thinkingContent;
-    }
+        // Include thinking content if available
+        if (thinkingContent) {
+          result.thinking = thinkingContent;
+        }
 
-    res.json(result);
-  } catch (error) {
-    console.error('Error analyzing configuration:', error);
-    res.status(500).json({
-      error: error.message || 'Failed to analyze configuration'
-    });
-  }
+        const duration = Date.now() - startTime;
+        span.setAttribute('api.duration_ms', duration);
+        span.setStatus({ code: 1, message: 'ok' });
+
+        Sentry.metrics.distribution('api.analyze.duration', duration, {
+          unit: 'millisecond',
+        });
+
+        res.json(result);
+      } catch (error) {
+        console.error('Error analyzing configuration:', error);
+
+        const duration = Date.now() - startTime;
+        span.setAttribute('api.duration_ms', duration);
+        span.setStatus({ code: 2, message: error.message });
+        Sentry.captureException(error);
+
+        res.status(500).json({
+          error: error.message || 'Failed to analyze configuration'
+        });
+      }
+    }
+  );
 });
 
 // Interactive chat endpoint for follow-up questions
 app.post('/api/chat', async (req, res) => {
-  try {
-    const { messages, sdkType, configCode, model = 'sonnet-4' } = req.body;
+  const startTime = Date.now();
 
-    if (!messages || messages.length === 0) {
-      return res.status(400).json({ error: 'Messages are required' });
-    }
+  return await Sentry.startSpan(
+    {
+      name: 'POST /api/chat',
+      op: 'http.server',
+      attributes: {
+        'http.method': 'POST',
+        'http.route': '/api/chat',
+      }
+    },
+    async (span) => {
+      try {
+        const { messages, sdkType, configCode, model = 'sonnet-4' } = req.body;
+
+        // Add request attributes
+        span.setAttribute('api.sdk_type', sdkType);
+        span.setAttribute('api.model', model);
+        span.setAttribute('api.message_count', messages?.length || 0);
+
+        if (!messages || messages.length === 0) {
+          span.setStatus({ code: 2, message: 'Missing messages' });
+          return res.status(400).json({ error: 'Messages are required' });
+        }
 
     const systemPrompt = `You are a Sentry configuration expert. You're in a conversation helping someone understand and fix their Sentry configuration.
 
@@ -399,28 +502,63 @@ Provide clear, helpful answers to their questions about Sentry configuration. Wh
       messages: messages
     });
 
-    const content = response.content[0];
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type from Claude');
-    }
+        const content = response.content[0];
+        if (content.type !== 'text') {
+          throw new Error('Unexpected response type from Claude');
+        }
 
-    res.json({ response: content.text });
-  } catch (error) {
-    console.error('Error in chat:', error);
-    res.status(500).json({
-      error: error.message || 'Failed to process chat message'
-    });
-  }
+        const duration = Date.now() - startTime;
+        span.setAttribute('api.duration_ms', duration);
+        span.setAttribute('api.response_length', content.text.length);
+        span.setStatus({ code: 1, message: 'ok' });
+
+        Sentry.metrics.distribution('api.chat.duration', duration, {
+          unit: 'millisecond',
+        });
+
+        res.json({ response: content.text });
+      } catch (error) {
+        console.error('Error in chat:', error);
+
+        const duration = Date.now() - startTime;
+        span.setAttribute('api.duration_ms', duration);
+        span.setStatus({ code: 2, message: error.message });
+        Sentry.captureException(error);
+
+        res.status(500).json({
+          error: error.message || 'Failed to process chat message'
+        });
+      }
+    }
+  );
 });
 
 // Generate complete fixed config endpoint
 app.post('/api/generate-fixed-config', async (req, res) => {
-  try {
-    const { configCode, problems, sdkType, model = 'sonnet-4' } = req.body;
+  const startTime = Date.now();
 
-    if (!configCode) {
-      return res.status(400).json({ error: 'Configuration code is required' });
-    }
+  return await Sentry.startSpan(
+    {
+      name: 'POST /api/generate-fixed-config',
+      op: 'http.server',
+      attributes: {
+        'http.method': 'POST',
+        'http.route': '/api/generate-fixed-config',
+      }
+    },
+    async (span) => {
+      try {
+        const { configCode, problems, sdkType, model = 'sonnet-4' } = req.body;
+
+        // Add request attributes
+        span.setAttribute('api.sdk_type', sdkType);
+        span.setAttribute('api.model', model);
+        span.setAttribute('api.problem_count', problems?.length || 0);
+
+        if (!configCode) {
+          span.setStatus({ code: 2, message: 'Missing config code' });
+          return res.status(400).json({ error: 'Configuration code is required' });
+        }
 
     const userPrompt = `SDK Type: ${sdkType}
 
@@ -451,20 +589,46 @@ Generate a complete, production-ready Sentry.init() configuration that fixes all
       throw new Error('Unexpected response type from Claude');
     }
 
-    let code = content.text.trim();
+        let code = content.text.trim();
 
-    // Remove markdown code blocks if present
-    if (code.startsWith('```')) {
-      code = code.replace(/^```[a-z]*\n/, '').replace(/\n```$/, '');
+        // Remove markdown code blocks if present
+        if (code.startsWith('```')) {
+          code = code.replace(/^```[a-z]*\n/, '').replace(/\n```$/, '');
+        }
+
+        const duration = Date.now() - startTime;
+        span.setAttribute('api.duration_ms', duration);
+        span.setAttribute('api.response_length', code.length);
+        span.setStatus({ code: 1, message: 'ok' });
+
+        Sentry.metrics.distribution('api.generate_fixed_config.duration', duration, {
+          unit: 'millisecond',
+        });
+
+        res.json({ fixedConfig: code });
+      } catch (error) {
+        console.error('Error generating fixed config:', error);
+
+        const duration = Date.now() - startTime;
+        span.setAttribute('api.duration_ms', duration);
+        span.setStatus({ code: 2, message: error.message });
+        Sentry.captureException(error);
+
+        res.status(500).json({
+          error: error.message || 'Failed to generate fixed configuration'
+        });
+      }
     }
+  );
+});
 
-    res.json({ fixedConfig: code });
-  } catch (error) {
-    console.error('Error generating fixed config:', error);
-    res.status(500).json({
-      error: error.message || 'Failed to generate fixed configuration'
-    });
-  }
+// Sentry error handler must be registered before any other error middleware and after all controllers
+Sentry.setupExpressErrorHandler(app);
+
+// Optional fallback error handler
+app.use(function onError(err, req, res, next) {
+  res.statusCode = 500;
+  res.end(res.sentry + "\n");
 });
 
 app.listen(PORT, () => {

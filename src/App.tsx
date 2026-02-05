@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import * as Sentry from '@sentry/react'
 import { analyzeConfig, type AnalysisResult } from './services/analyzer'
 import {
   analyzeConfigStreaming,
@@ -99,45 +100,77 @@ function App() {
   const handleFileUpload = async (files: FileList) => {
     if (!files || files.length === 0) return
 
-    const filePromises = Array.from(files).map(file => {
-      return new Promise<{ name: string; content: string }>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          const content = e.target?.result as string
+    const startTime = Date.now()
+    const fileCount = files.length
+    let totalSize = 0
+    Array.from(files).forEach(f => totalSize += f.size)
 
-          // Mask sensitive data
-          const maskingResult = maskSensitiveData(content)
-
-          if (maskingResult.wasMasked) {
-            setMaskedSecrets(prev => {
-              const newSecrets = [...prev];
-              maskingResult.detectedSecrets.forEach(detected => {
-                const existing = newSecrets.find(s => s.type === detected.type);
-                if (existing) {
-                  existing.count += detected.count;
-                } else {
-                  newSecrets.push(detected);
-                }
-              });
-              return newSecrets;
-            });
-            setShowSecurityNotice(true);
-          }
-
-          resolve({ name: file.name, content: maskingResult.maskedContent })
+    await Sentry.startSpan(
+      {
+        name: 'config.file_upload',
+        op: 'config.file_upload',
+        attributes: {
+          'upload.file_count': fileCount,
+          'upload.total_size_bytes': totalSize,
         }
-        reader.onerror = reject
-        reader.readAsText(file)
-      })
-    })
+      },
+      async (span) => {
+        const filePromises = Array.from(files).map(file => {
+          return new Promise<{ name: string; content: string }>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = (e) => {
+              const content = e.target?.result as string
 
-    try {
-      const loadedFiles = await Promise.all(filePromises)
-      setUploadedFiles(prev => [...prev, ...loadedFiles])
-    } catch (error) {
-      console.error('Error reading files:', error)
-      alert('Failed to read one or more files')
-    }
+              // Mask sensitive data
+              const maskingResult = maskSensitiveData(content)
+
+              if (maskingResult.wasMasked) {
+                setMaskedSecrets(prev => {
+                  const newSecrets = [...prev];
+                  maskingResult.detectedSecrets.forEach(detected => {
+                    const existing = newSecrets.find(s => s.type === detected.type);
+                    if (existing) {
+                      existing.count += detected.count;
+                    } else {
+                      newSecrets.push(detected);
+                    }
+                  });
+                  return newSecrets;
+                });
+                setShowSecurityNotice(true);
+              }
+
+              resolve({ name: file.name, content: maskingResult.maskedContent })
+            }
+            reader.onerror = reject
+            reader.readAsText(file)
+          })
+        })
+
+        try {
+          const loadedFiles = await Promise.all(filePromises)
+          setUploadedFiles(prev => [...prev, ...loadedFiles])
+
+          const duration = Date.now() - startTime
+
+          // Mark success
+          span.setStatus({ code: 1, message: 'ok' })
+          span.setAttribute('upload.success', true)
+          span.setAttribute('upload.duration_ms', duration)
+
+          Sentry.metrics.distribution('config.file_upload.duration', duration, {
+            unit: 'millisecond',
+          })
+        } catch (error) {
+          console.error('Error reading files:', error)
+          alert('Failed to read one or more files')
+
+          span.setStatus({ code: 2, message: 'Upload failed' })
+          Sentry.captureException(error)
+          throw error
+        }
+      }
+    )
   }
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,7 +238,22 @@ function App() {
     setFixedConfig('')
     setAnalysisProgress(0)
 
-    try {
+    // Start Sentry performance tracking for "time to analysis"
+    const startTime = Date.now()
+
+    await Sentry.startSpan(
+      {
+        name: 'config.analysis',
+        op: 'config.analyze',
+        attributes: {
+          'analysis.sdk_type': sdkType,
+          'analysis.model': model,
+          'analysis.streaming': useStreaming,
+          'analysis.extended_thinking': useExtendedThinking,
+        }
+      },
+      async (span) => {
+        try {
       if (useStreaming) {
         // Streaming mode
         let thinkingText = ''
@@ -291,39 +339,129 @@ function App() {
           setFixedConfig(maskedAnalysis.completeFixedConfig)
         }
       }
-    } catch (error) {
-      console.error('Analysis error:', error)
-      alert(`Error analyzing configuration: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setAnalyzing(false)
-    }
+
+          // Mark span as successful
+          span.setStatus({ code: 1, message: 'ok' })
+          span.setAttribute('analysis.success', true)
+        } catch (error) {
+          console.error('Analysis error:', error)
+          alert(`Error analyzing configuration: ${error instanceof Error ? error.message : 'Unknown error'}`)
+
+          // Mark span as error and capture exception
+          span.setStatus({ code: 2, message: 'Analysis failed' })
+          Sentry.captureException(error)
+          throw error
+        } finally {
+          // Calculate and record time to analysis
+          const analysisTimeMs = Date.now() - startTime
+
+          // Add timing as span attribute
+          span.setAttribute('analysis.duration_ms', analysisTimeMs)
+
+          // Record as custom metric
+          Sentry.metrics.distribution('config.analysis.duration', analysisTimeMs, {
+            unit: 'millisecond',
+          })
+
+          // Add context tags for filtering
+          Sentry.setTag('analysis.sdk_type', sdkType)
+          Sentry.setTag('analysis.model', model)
+          Sentry.setTag('analysis.streaming', useStreaming)
+
+          setAnalyzing(false)
+        }
+      }
+    )
   }
 
   const handleGenerateFixedConfig = async () => {
     if (!result || result.problems.length === 0) return
 
-    try {
-      const fixed = await generateFixedConfig(configCode, result.problems, sdkType, model)
-      // Mask DSN in the generated fixed config
-      const dsnPattern = /https?:\/\/[a-f0-9]{32}@[a-z0-9-]+\.ingest\.[a-z]+\.sentry\.io\/\d+/gi
-      const maskedFixed = fixed.replace(dsnPattern, 'https://***MASKED_DSN***@your-org.ingest.sentry.io/***')
-      setFixedConfig(maskedFixed)
-    } catch (error) {
-      console.error('Error generating fixed config:', error)
-      alert('Failed to generate fixed configuration')
-    }
+    const startTime = Date.now()
+
+    await Sentry.startSpan(
+      {
+        name: 'config.generate_fixed',
+        op: 'config.generate_fixed',
+        attributes: {
+          'generate.sdk_type': sdkType,
+          'generate.model': model,
+          'generate.problem_count': result.problems.length,
+        }
+      },
+      async (span) => {
+        try {
+          const fixed = await generateFixedConfig(configCode, result.problems, sdkType, model)
+          // Mask DSN in the generated fixed config
+          const dsnPattern = /https?:\/\/[a-f0-9]{32}@[a-z0-9-]+\.ingest\.[a-z]+\.sentry\.io\/\d+/gi
+          const maskedFixed = fixed.replace(dsnPattern, 'https://***MASKED_DSN***@your-org.ingest.sentry.io/***')
+          setFixedConfig(maskedFixed)
+
+          // Mark success
+          span.setStatus({ code: 1, message: 'ok' })
+          span.setAttribute('generate.success', true)
+        } catch (error) {
+          console.error('Error generating fixed config:', error)
+          alert('Failed to generate fixed configuration')
+
+          span.setStatus({ code: 2, message: 'Generation failed' })
+          Sentry.captureException(error)
+          throw error
+        } finally {
+          const duration = Date.now() - startTime
+          span.setAttribute('generate.duration_ms', duration)
+
+          Sentry.metrics.distribution('config.generate_fixed.duration', duration, {
+            unit: 'millisecond',
+          })
+        }
+      }
+    )
   }
 
   const handleExportPDF = () => {
     if (!result) return
 
-    exportToPDF({
-      result,
-      sdkType,
-      fixedConfig,
-      model: model === 'opus-4.5' ? 'Claude Opus 4.5' : 'Claude Sonnet 4',
-      originalConfig: configCode
-    })
+    const startTime = Date.now()
+
+    Sentry.startSpan(
+      {
+        name: 'config.export_pdf',
+        op: 'config.export_pdf',
+        attributes: {
+          'export.sdk_type': sdkType,
+          'export.model': model,
+          'export.problem_count': result.problems.length,
+          'export.recommendation_count': result.recommendations.length,
+        }
+      },
+      (span) => {
+        try {
+          exportToPDF({
+            result,
+            sdkType,
+            fixedConfig,
+            model: model === 'opus-4.5' ? 'Claude Opus 4.5' : 'Claude Sonnet 4',
+            originalConfig: configCode
+          })
+
+          const duration = Date.now() - startTime
+
+          // Mark success
+          span.setStatus({ code: 1, message: 'ok' })
+          span.setAttribute('export.success', true)
+          span.setAttribute('export.duration_ms', duration)
+
+          Sentry.metrics.distribution('config.export_pdf.duration', duration, {
+            unit: 'millisecond',
+          })
+        } catch (error) {
+          span.setStatus({ code: 2, message: 'Export failed' })
+          Sentry.captureException(error)
+          throw error
+        }
+      }
+    )
   }
 
   const handleSendMessage = async () => {
@@ -335,18 +473,50 @@ function App() {
     setChatInput('')
     setSendingMessage(true)
 
-    try {
-      const response = await chatAboutConfig(updatedMessages, sdkType, configCode, model)
-      // Mask DSN in chat responses
-      const dsnPattern = /https?:\/\/[a-f0-9]{32}@[a-z0-9-]+\.ingest\.[a-z]+\.sentry\.io\/\d+/gi
-      const maskedResponse = response.replace(dsnPattern, 'https://***MASKED_DSN***@your-org.ingest.sentry.io/***')
-      setChatMessages([...updatedMessages, { role: 'assistant', content: maskedResponse }])
-    } catch (error) {
-      console.error('Chat error:', error)
-      alert('Failed to send message')
-    } finally {
-      setSendingMessage(false)
-    }
+    const startTime = Date.now()
+
+    await Sentry.startSpan(
+      {
+        name: 'config.chat',
+        op: 'config.chat',
+        attributes: {
+          'chat.sdk_type': sdkType,
+          'chat.model': model,
+          'chat.message_count': updatedMessages.length,
+          'chat.message_length': chatInput.length,
+        }
+      },
+      async (span) => {
+        try {
+          const response = await chatAboutConfig(updatedMessages, sdkType, configCode, model)
+          // Mask DSN in chat responses
+          const dsnPattern = /https?:\/\/[a-f0-9]{32}@[a-z0-9-]+\.ingest\.[a-z]+\.sentry\.io\/\d+/gi
+          const maskedResponse = response.replace(dsnPattern, 'https://***MASKED_DSN***@your-org.ingest.sentry.io/***')
+          setChatMessages([...updatedMessages, { role: 'assistant', content: maskedResponse }])
+
+          const duration = Date.now() - startTime
+
+          // Mark success
+          span.setStatus({ code: 1, message: 'ok' })
+          span.setAttribute('chat.success', true)
+          span.setAttribute('chat.duration_ms', duration)
+          span.setAttribute('chat.response_length', maskedResponse.length)
+
+          Sentry.metrics.distribution('config.chat.duration', duration, {
+            unit: 'millisecond',
+          })
+        } catch (error) {
+          console.error('Chat error:', error)
+          alert('Failed to send message')
+
+          span.setStatus({ code: 2, message: 'Chat failed' })
+          Sentry.captureException(error)
+          throw error
+        } finally {
+          setSendingMessage(false)
+        }
+      }
+    )
   }
 
   return (
