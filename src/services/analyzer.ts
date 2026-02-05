@@ -1,7 +1,17 @@
 export interface AnalysisResult {
   correctConfig: string[];
-  problems: Array<{ title: string; description: string; fix: string }>;
+  problems: Array<{
+    title: string;
+    description: string;
+    fix: string;
+    severity?: 'low' | 'medium' | 'high' | 'critical';
+  }>;
   suggestions: Array<{ title: string; description: string; code?: string }>;
+  complexityAssessment?: {
+    requiresHumanReview: boolean;
+    reason?: string;
+    recommendedAction?: string;
+  };
 }
 
 const API_URL = 'http://localhost:3001';

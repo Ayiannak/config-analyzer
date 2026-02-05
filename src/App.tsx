@@ -254,6 +254,8 @@ function App() {
         }
       },
       async (span) => {
+        let analysisResult: AnalysisResult | null = null
+
         try {
       if (useStreaming) {
         // Streaming mode
@@ -299,6 +301,7 @@ function App() {
                 try {
                   const parsed = event.result
                   const maskedResult = maskResultDSNs(parsed)
+                  analysisResult = maskedResult
                   setResult(maskedResult)
                   if (maskedResult.completeFixedConfig) {
                     setFixedConfig(maskedResult.completeFixedConfig)
@@ -330,6 +333,7 @@ function App() {
 
         setAnalysisProgress(100)
         const maskedAnalysis = maskResultDSNs(analysis)
+        analysisResult = maskedAnalysis
         setResult(maskedAnalysis)
 
         if (maskedAnalysis.thinking) {
@@ -344,6 +348,27 @@ function App() {
           // Mark span as successful
           span.setStatus({ code: 1, message: 'ok' })
           span.setAttribute('analysis.success', true)
+
+          // Track complexity assessment
+          if (analysisResult?.complexityAssessment) {
+            span.setAttribute('analysis.requires_human_review', analysisResult.complexityAssessment.requiresHumanReview)
+
+            if (analysisResult.complexityAssessment.requiresHumanReview) {
+              // Log complexity warning event
+              Sentry.captureMessage('Complex configuration detected - human review recommended', {
+                level: 'warning',
+                tags: {
+                  sdk_type: sdkType,
+                  model: model,
+                },
+                extra: {
+                  reason: analysisResult.complexityAssessment.reason,
+                  recommended_action: analysisResult.complexityAssessment.recommendedAction,
+                  problem_count: analysisResult.problems.length,
+                }
+              })
+            }
+          }
         } catch (error) {
           console.error('Analysis error:', error)
           alert(`Error analyzing configuration: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -859,6 +884,30 @@ function App() {
         {/* Results Section */}
         {result && (
           <div className="space-y-6">
+            {/* Complexity Warning - Requires Human Review */}
+            {result.complexityAssessment?.requiresHumanReview && (
+              <div className="card p-6 bg-gradient-to-r from-orange-900/40 to-red-900/40 border-l-4 border-orange-500">
+                <div className="flex items-start gap-4">
+                  <span className="text-4xl">⚠️</span>
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-bold text-orange-400 mb-3">
+                      Complex Configuration - Human Review Recommended
+                    </h3>
+                    <p className="text-gray-300 mb-3 text-lg">
+                      {result.complexityAssessment.reason}
+                    </p>
+                    <div className="bg-gray-800/50 p-4 rounded-lg border border-orange-500/30">
+                      <p className="text-white font-semibold mb-2">📋 Recommended Action:</p>
+                      <p className="text-gray-300">{result.complexityAssessment.recommendedAction}</p>
+                    </div>
+                    <p className="text-gray-400 text-sm mt-3">
+                      💡 While the AI analysis below provides guidance, this configuration requires expertise to implement safely.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Results Header with Export Button */}
             <div className="card p-6 bg-gradient-to-r from-primary/10 to-secondary/10 border-l-4 border-primary">
               <div className="flex items-center justify-between flex-wrap gap-4">
@@ -922,11 +971,34 @@ function App() {
                   <span>Problems Detected</span>
                 </h2>
                 <div className="space-y-6">
-                  {result.problems.map((problem, i) => (
-                    <div key={i} className="border-l-4 border-primary pl-4">
-                      <h3 className="text-xl font-semibold text-primary mb-2">
-                        {problem.title}
-                      </h3>
+                  {result.problems.map((problem, i) => {
+                    const severityColors = {
+                      critical: 'border-red-500 bg-red-900/20',
+                      high: 'border-orange-500 bg-orange-900/20',
+                      medium: 'border-yellow-500 bg-yellow-900/20',
+                      low: 'border-blue-500 bg-blue-900/20'
+                    }
+                    const severityLabels = {
+                      critical: '🔴 CRITICAL',
+                      high: '🟠 HIGH',
+                      medium: '🟡 MEDIUM',
+                      low: '🔵 LOW'
+                    }
+                    const borderColor = problem.severity ? severityColors[problem.severity] : 'border-primary'
+                    const severityLabel = problem.severity ? severityLabels[problem.severity] : null
+
+                    return (
+                    <div key={i} className={`border-l-4 pl-4 ${borderColor}`}>
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="text-xl font-semibold text-primary">
+                          {problem.title}
+                        </h3>
+                        {severityLabel && (
+                          <span className="text-sm font-bold px-3 py-1 rounded-full bg-gray-800/50">
+                            {severityLabel}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-gray-300 mb-3">
                         {problem.description}
                       </p>
@@ -937,7 +1009,8 @@ function App() {
                         </pre>
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 {/* Generate Complete Fixed Config Button */}

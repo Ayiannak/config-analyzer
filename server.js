@@ -95,8 +95,19 @@ const SYSTEM_PROMPT = `You are a Sentry configuration expert. Analyze Sentry SDK
 1. What's configured correctly
 2. Configuration problems that explain the reported issues
 3. Additional optimization suggestions
+4. Whether this case requires human expert review
 
 Always provide specific code fixes in the same language/format as the input.
+
+COMPLEXITY ASSESSMENT: Evaluate if this configuration issue is too complex for automated analysis. Flag as "requiresHumanReview" if ANY of these apply:
+- Multiple severe/critical security issues (exposed secrets, disabled security features, etc.)
+- Complex performance problems requiring production metrics/context
+- Advanced SDK features with unusual patterns that need architectural review
+- Conflicts between multiple integrations that need business context
+- Custom implementations that deviate significantly from standard patterns
+- Issues that could cause data loss, privacy violations, or compliance problems
+- Situations where the root cause is ambiguous and needs deeper investigation
+- 5+ distinct problems indicating systemic configuration issues
 
 IMPORTANT: Return your analysis as valid JSON. When including code in strings:
 - Escape all backslashes as \\\\
@@ -111,7 +122,8 @@ Return your analysis as a JSON object with this structure:
     {
       "title": "Short problem title",
       "description": "Detailed explanation of why this is a problem and how it relates to reported issues",
-      "fix": "Exact code snippet showing the fix"
+      "fix": "Exact code snippet showing the fix",
+      "severity": "low|medium|high|critical"
     }
   ],
   "suggestions": [
@@ -120,7 +132,12 @@ Return your analysis as a JSON object with this structure:
       "description": "Why this would be beneficial"
     }
   ],
-  "completeFixedConfig": "Complete corrected Sentry.init() configuration with all fixes applied"
+  "completeFixedConfig": "Complete corrected Sentry.init() configuration with all fixes applied",
+  "complexityAssessment": {
+    "requiresHumanReview": true/false,
+    "reason": "Brief explanation of why human review is needed (only if requiresHumanReview is true)",
+    "recommendedAction": "Specific guidance (e.g., 'Contact Sentry support', 'Consult with your team's senior engineer', 'Schedule architecture review')"
+  }
 }`;
 
 // Streaming analysis endpoint with extended thinking
