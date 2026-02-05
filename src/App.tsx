@@ -237,6 +237,7 @@ function App() {
     setStreamingText('')
     setFixedConfig('')
     setAnalysisProgress(0)
+    setChatMessages([]) // Clear chat history on new analysis
 
     // Start Sentry performance tracking for "time to analysis"
     const startTime = Date.now()
