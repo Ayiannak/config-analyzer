@@ -1,0 +1,193 @@
+{
+  "title": "Config Analyzer - Performance Metrics",
+  "projects": [-1],
+  "environment": [],
+  "period": "24h",
+  "start": null,
+  "end": null,
+  "filters": {},
+  "utc": false,
+  "widgets": [
+    {
+      "title": "Config Analysis Duration (p50, p95, p99)",
+      "displayType": "line",
+      "widgetType": "custom-metrics",
+      "limit": 10,
+      "queries": [
+        {
+          "name": "p50",
+          "fields": ["p50(d:custom/config.analysis.duration@millisecond)"],
+          "aggregates": ["p50(d:custom/config.analysis.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        },
+        {
+          "name": "p95",
+          "fields": ["p95(d:custom/config.analysis.duration@millisecond)"],
+          "aggregates": ["p95(d:custom/config.analysis.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        },
+        {
+          "name": "p99",
+          "fields": ["p99(d:custom/config.analysis.duration@millisecond)"],
+          "aggregates": ["p99(d:custom/config.analysis.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "Chat Response Duration (p50, p95)",
+      "displayType": "line",
+      "widgetType": "custom-metrics",
+      "limit": 10,
+      "queries": [
+        {
+          "name": "p50",
+          "fields": ["p50(d:custom/config.chat.duration@millisecond)"],
+          "aggregates": ["p50(d:custom/config.chat.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        },
+        {
+          "name": "p95",
+          "fields": ["p95(d:custom/config.chat.duration@millisecond)"],
+          "aggregates": ["p95(d:custom/config.chat.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "Fixed Config Generation Duration",
+      "displayType": "line",
+      "widgetType": "custom-metrics",
+      "limit": 10,
+      "queries": [
+        {
+          "name": "p50",
+          "fields": ["p50(d:custom/config.generate_fixed.duration@millisecond)"],
+          "aggregates": ["p50(d:custom/config.generate_fixed.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        },
+        {
+          "name": "p95",
+          "fields": ["p95(d:custom/config.generate_fixed.duration@millisecond)"],
+          "aggregates": ["p95(d:custom/config.generate_fixed.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "PDF Export Duration",
+      "displayType": "line",
+      "widgetType": "custom-metrics",
+      "limit": 10,
+      "queries": [
+        {
+          "name": "",
+          "fields": ["avg(d:custom/config.export_pdf.duration@millisecond)"],
+          "aggregates": ["avg(d:custom/config.export_pdf.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "File Upload Processing Duration",
+      "displayType": "line",
+      "widgetType": "custom-metrics",
+      "limit": 10,
+      "queries": [
+        {
+          "name": "",
+          "fields": ["avg(d:custom/config.file_upload.duration@millisecond)"],
+          "aggregates": ["avg(d:custom/config.file_upload.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "API Analyze Stream Duration",
+      "displayType": "line",
+      "widgetType": "custom-metrics",
+      "limit": 10,
+      "queries": [
+        {
+          "name": "p50",
+          "fields": ["p50(d:custom/api.analyze_stream.duration@millisecond)"],
+          "aggregates": ["p50(d:custom/api.analyze_stream.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        },
+        {
+          "name": "p95",
+          "fields": ["p95(d:custom/api.analyze_stream.duration@millisecond)"],
+          "aggregates": ["p95(d:custom/api.analyze_stream.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "API Chat Duration",
+      "displayType": "line",
+      "widgetType": "custom-metrics",
+      "limit": 10,
+      "queries": [
+        {
+          "name": "",
+          "fields": ["avg(d:custom/api.chat.duration@millisecond)"],
+          "aggregates": ["avg(d:custom/api.chat.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "API Generate Fixed Config Duration",
+      "displayType": "line",
+      "widgetType": "custom-metrics",
+      "limit": 10,
+      "queries": [
+        {
+          "name": "",
+          "fields": ["avg(d:custom/api.generate_fixed_config.duration@millisecond)"],
+          "aggregates": ["avg(d:custom/api.generate_fixed_config.duration@millisecond)"],
+          "columns": [],
+          "fieldAliases": [""],
+          "conditions": "",
+          "orderby": ""
+        }
+      ]
+    }
+  ]
+}

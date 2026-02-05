@@ -1,0 +1,225 @@
+{
+  "title": "Config Analyzer - Performance & Metrics",
+  "widgets": [
+    {
+      "title": "Analysis Time (p50, p95, p99)",
+      "displayType": "line",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "p50",
+          "fields": ["p50(measurements.config.analysis.duration)"],
+          "aggregates": ["p50(measurements.config.analysis.duration)"],
+          "columns": [],
+          "conditions": "transaction:config.analysis",
+          "orderby": ""
+        },
+        {
+          "name": "p95",
+          "fields": ["p95(measurements.config.analysis.duration)"],
+          "aggregates": ["p95(measurements.config.analysis.duration)"],
+          "columns": [],
+          "conditions": "transaction:config.analysis",
+          "orderby": ""
+        },
+        {
+          "name": "p99",
+          "fields": ["p99(measurements.config.analysis.duration)"],
+          "aggregates": ["p99(measurements.config.analysis.duration)"],
+          "columns": [],
+          "conditions": "transaction:config.analysis",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "Analysis Time by Model",
+      "displayType": "line",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "Sonnet vs Opus",
+          "fields": ["avg(measurements.config.analysis.duration)"],
+          "aggregates": ["avg(measurements.config.analysis.duration)"],
+          "columns": ["analysis.model"],
+          "conditions": "transaction:config.analysis",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "Total Analyses",
+      "displayType": "big_number",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "",
+          "fields": ["count()"],
+          "aggregates": ["count()"],
+          "columns": [],
+          "conditions": "transaction:config.analysis",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "Average Analysis Duration",
+      "displayType": "big_number",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "",
+          "fields": ["avg(measurements.config.analysis.duration)"],
+          "aggregates": ["avg(measurements.config.analysis.duration)"],
+          "columns": [],
+          "conditions": "transaction:config.analysis",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "Chat Response Time (p50, p95)",
+      "displayType": "line",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "p50",
+          "fields": ["p50(measurements.config.chat.duration)"],
+          "aggregates": ["p50(measurements.config.chat.duration)"],
+          "columns": [],
+          "conditions": "transaction:config.chat",
+          "orderby": ""
+        },
+        {
+          "name": "p95",
+          "fields": ["p95(measurements.config.chat.duration)"],
+          "aggregates": ["p95(measurements.config.chat.duration)"],
+          "columns": [],
+          "conditions": "transaction:config.chat",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "Fixed Config Generation Time",
+      "displayType": "line",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "p50",
+          "fields": ["p50(measurements.config.generate_fixed.duration)"],
+          "aggregates": ["p50(measurements.config.generate_fixed.duration)"],
+          "columns": [],
+          "conditions": "transaction:config.generate_fixed",
+          "orderby": ""
+        },
+        {
+          "name": "p95",
+          "fields": ["p95(measurements.config.generate_fixed.duration)"],
+          "aggregates": ["p95(measurements.config.generate_fixed.duration)"],
+          "columns": [],
+          "conditions": "transaction:config.generate_fixed",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "PDF Export Time",
+      "displayType": "line",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "",
+          "fields": ["avg(measurements.config.export_pdf.duration)"],
+          "aggregates": ["avg(measurements.config.export_pdf.duration)"],
+          "columns": [],
+          "conditions": "transaction:config.export_pdf",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "File Upload Processing Time",
+      "displayType": "line",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "",
+          "fields": ["avg(measurements.config.file_upload.duration)"],
+          "aggregates": ["avg(measurements.config.file_upload.duration)"],
+          "columns": [],
+          "conditions": "transaction:config.file_upload",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "API: Analyze Stream Duration (p50, p95)",
+      "displayType": "line",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "p50",
+          "fields": ["p50(measurements.api.analyze_stream.duration)"],
+          "aggregates": ["p50(measurements.api.analyze_stream.duration)"],
+          "columns": [],
+          "conditions": "transaction:\"POST /api/analyze-stream\"",
+          "orderby": ""
+        },
+        {
+          "name": "p95",
+          "fields": ["p95(measurements.api.analyze_stream.duration)"],
+          "aggregates": ["p95(measurements.api.analyze_stream.duration)"],
+          "columns": [],
+          "conditions": "transaction:\"POST /api/analyze-stream\"",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "API: Chat Duration",
+      "displayType": "line",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "",
+          "fields": ["avg(measurements.api.chat.duration)"],
+          "aggregates": ["avg(measurements.api.chat.duration)"],
+          "columns": [],
+          "conditions": "transaction:\"POST /api/chat\"",
+          "orderby": ""
+        }
+      ]
+    },
+    {
+      "title": "All Operations Count",
+      "displayType": "table",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "",
+          "fields": ["transaction", "count()"],
+          "aggregates": ["count()"],
+          "columns": ["transaction"],
+          "conditions": "transaction:[\"config.*\", \"POST /api/*\"]",
+          "orderby": "-count()"
+        }
+      ]
+    },
+    {
+      "title": "Streaming vs Non-Streaming",
+      "displayType": "bar",
+      "widgetType": "transaction-like",
+      "queries": [
+        {
+          "name": "",
+          "fields": ["avg(measurements.config.analysis.duration)"],
+          "aggregates": ["avg(measurements.config.analysis.duration)"],
+          "columns": ["analysis.streaming"],
+          "conditions": "transaction:config.analysis",
+          "orderby": ""
+        }
+      ]
+    }
+  ]
+}
