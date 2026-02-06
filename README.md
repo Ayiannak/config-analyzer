@@ -1,15 +1,31 @@
 # 🔍 Sentry Config Analyzer
 
-An AI-powered tool to analyze Sentry SDK configurations and identify problems. Perfect for customer support and sales engineering calls.
+A **specialized Sentry troubleshooting tool** powered by AI and trained on official Sentry documentation. Unlike generic AI assistants, this tool has deep knowledge of Sentry-specific issues, best practices, and troubleshooting techniques.
+
+Perfect for customer support, sales engineering calls, and debugging Sentry SDK configurations.
+
+## 🎯 What Makes This Different
+
+This is **NOT** a generic AI code assistant. It's a specialized Sentry expert that:
+
+- 📚 **Trained on Official Sentry Docs** - Deep knowledge of docs.sentry.io
+- 🔍 **Recognizes Sentry-Specific Issues** - Ad-blockers, DSN issues, sample rates, source maps, etc.
+- ✅ **Enforces Best Practices** - Based on official Sentry recommendations
+- 🧠 **Understands Sentry Concepts** - DSN, events, transactions, spans, breadcrumbs, integrations
+- ⚠️ **Smart Complexity Detection** - Knows when to recommend human expert review
+
+See [SENTRY_SPECIALIZATION.md](./SENTRY_SPECIALIZATION.md) for detailed comparison vs generic AI.
 
 ## Features
 
 - 📝 Paste customer's `Sentry.init()` code
 - 🐛 Describe issues they're experiencing
-- 🤖 Get instant AI analysis powered by Claude
-- ✅ See what's configured correctly
-- ❌ Identify problems with fix suggestions
-- 💡 Get optimization recommendations
+- 🤖 Get instant AI analysis powered by Claude + Sentry documentation
+- ✅ See what's configured correctly (per Sentry best practices)
+- ❌ Identify problems with Sentry-specific fix suggestions
+- 💡 Get optimization recommendations based on official docs
+- 🎯 Automatic complexity assessment for human escalation
+- 📊 Full Sentry integration for error tracking and metrics
 
 ## Setup
 

@@ -625,8 +625,16 @@ function App() {
           <h1 className="text-5xl font-bold mb-4 bg-accent-gradient bg-clip-text text-transparent">
             Sentry Config Analyzer
           </h1>
-          <p className="text-gray-400 text-lg">
-            AI-Powered Configuration Analysis with Claude {model === 'opus-4.5' ? 'Opus 4.5' : 'Sonnet 4'}
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <p className="text-gray-400 text-lg">
+              AI-Powered Configuration Analysis with Claude {model === 'opus-4.5' ? 'Opus 4.5' : 'Sonnet 4'}
+            </p>
+            <span className="px-3 py-1 bg-purple-600/30 text-purple-300 rounded-full text-sm font-semibold border border-purple-500/50">
+              📚 Powered by Sentry Docs
+            </span>
+          </div>
+          <p className="text-gray-500 text-sm mb-4">
+            Specialized Sentry troubleshooting expert trained on official Sentry documentation
           </p>
           <div className="mt-4 flex justify-center gap-2 text-sm text-gray-500">
             <span className="px-3 py-1 bg-primary/20 rounded-full">🚀 Streaming</span>
