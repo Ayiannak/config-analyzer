@@ -821,23 +821,25 @@ function App() {
           </div>
         </div>
 
-        {/* Security Notice Banner */}
-        <div className="card p-4 mb-6 border-l-4 border-green-500">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">🔒</span>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-green-400 mb-2">
-                Your Data is Secure & Private
-              </h3>
-              <div className="text-gray-300 text-sm space-y-1">
-                <p>✓ <strong>Automatic Masking:</strong> DSNs, API keys, tokens, and secrets are automatically detected and masked before analysis</p>
-                <p>✓ <strong>No Storage:</strong> Your configuration is processed in real-time and never stored on our servers</p>
-                <p>✓ <strong>Direct API:</strong> Analysis is performed directly via Claude API with enterprise-grade security</p>
-                <p>✓ <strong>Client-Side Protection:</strong> Sensitive data is masked in your browser before transmission</p>
+        {/* Security Notice Banner - Only show in Config Analysis mode */}
+        {mode === 'config' && (
+          <div className="card p-4 mb-6 border-l-4 border-green-500">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">🔒</span>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-green-400 mb-2">
+                  Your Data is Secure & Private
+                </h3>
+                <div className="text-gray-300 text-sm space-y-1">
+                  <p>✓ <strong>Automatic Masking:</strong> DSNs, API keys, tokens, and secrets are automatically detected and masked before analysis</p>
+                  <p>✓ <strong>No Storage:</strong> Your configuration is processed in real-time and never stored on our servers</p>
+                  <p>✓ <strong>Direct API:</strong> Analysis is performed directly via Claude API with enterprise-grade security</p>
+                  <p>✓ <strong>Client-Side Protection:</strong> Sensitive data is masked in your browser before transmission</p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Masked Secrets Alert */}
         {showSecurityNotice && maskedSecrets.length > 0 && (
