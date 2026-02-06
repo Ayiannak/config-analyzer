@@ -19,8 +19,8 @@ function App() {
   const [generalQuestion, setGeneralQuestion] = useState('')
   const [generalAnswer, setGeneralAnswer] = useState('')
   const [sdkType, setSdkType] = useState('JavaScript')
-  const [model, setModel] = useState<'sonnet-4' | 'opus-4.5'>('sonnet-4')
-  const [useExtendedThinking, setUseExtendedThinking] = useState(false)
+  const [model, setModel] = useState<'sonnet-4' | 'opus-4.5'>('opus-4.5')
+  const [useExtendedThinking, setUseExtendedThinking] = useState(true)
   const [useStreaming, setUseStreaming] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState<AnalysisResult | null>(null)
@@ -776,7 +776,8 @@ function App() {
               onClick={() => {
                 setMode('config')
                 setGeneralAnswer('')
-                setResult(null)
+                setGeneralQuestion('')
+                setThinking('')
               }}
               className={`px-6 py-3 rounded-lg font-semibold transition-all ${
                 mode === 'config'
@@ -791,6 +792,11 @@ function App() {
                 setMode('general')
                 setResult(null)
                 setGeneralAnswer('')
+                setThinking('')
+                // Clear config-related state to prevent any interference
+                setFixedConfig('')
+                setChatMessages([])
+                setStreamingText('')
               }}
               className={`px-6 py-3 rounded-lg font-semibold transition-all ${
                 mode === 'general'
@@ -937,11 +943,17 @@ function App() {
               >
                 <option>JavaScript</option>
                 <option>Python</option>
+                <option>React Native</option>
+                <option>Flutter</option>
+                <option>iOS</option>
+                <option>Android</option>
                 <option>Ruby</option>
                 <option>PHP</option>
                 <option>Java</option>
                 <option>Go</option>
                 <option>.NET</option>
+                <option>Elixir</option>
+                <option>Rust</option>
               </select>
             </div>
 
@@ -1107,6 +1119,12 @@ function App() {
             <h2 className="text-2xl font-semibold mb-4 text-secondary">
               💬 Ask a General Sentry Question
             </h2>
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 mb-4">
+              <p className="text-blue-300 text-sm">
+                ℹ️ <strong>Standalone Q&A Mode:</strong> This mode is completely independent from any config files you may have uploaded.
+                Ask general Sentry questions and get expert guidance without config-specific analysis.
+              </p>
+            </div>
             <p className="text-gray-400 text-sm mb-4">
               Get expert answers about Sentry without needing to provide a config. Ask about features, troubleshooting, best practices, or any Sentry-related topic.
             </p>
@@ -1122,11 +1140,17 @@ function App() {
               >
                 <option>JavaScript</option>
                 <option>Python</option>
+                <option>React Native</option>
+                <option>Flutter</option>
+                <option>iOS</option>
+                <option>Android</option>
                 <option>Ruby</option>
                 <option>PHP</option>
                 <option>Java</option>
                 <option>Go</option>
                 <option>.NET</option>
+                <option>Elixir</option>
+                <option>Rust</option>
               </select>
             </div>
 
