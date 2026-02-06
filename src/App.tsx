@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import * as Sentry from '@sentry/react'
+import ReactMarkdown from 'react-markdown'
 import { type AnalysisResult } from './services/analyzer'
 import {
   analyzeConfigStreaming,
@@ -563,7 +564,7 @@ function App() {
   }
 
   const handleGenerateFixedConfig = async () => {
-    if (!result || result.problems.length === 0) return
+    if (!result || !result.problems || result.problems.length === 0) return
 
     const startTime = Date.now()
 
@@ -574,7 +575,7 @@ function App() {
         attributes: {
           'generate.sdk_type': sdkType,
           'generate.model': model,
-          'generate.problem_count': result.problems.length,
+          'generate.problem_count': result.problems?.length || 0,
         }
       },
       async (span) => {
@@ -602,7 +603,7 @@ function App() {
             },
             contexts: {
               generation: {
-                problem_count: result.problems.length,
+                problem_count: result.problems?.length || 0,
                 config_length: configCode.length,
               }
             },
@@ -633,7 +634,7 @@ function App() {
         attributes: {
           'export.sdk_type': sdkType,
           'export.model': model,
-          'export.problem_count': result.problems.length,
+          'export.problem_count': result.problems?.length || 0,
           'export.has_recommendations': !!result.recommendations,
         }
       },
@@ -668,7 +669,7 @@ function App() {
             },
             contexts: {
               export: {
-                problem_count: result.problems.length,
+                problem_count: result.problems?.length || 0,
                 has_fixed_config: !!fixedConfig,
               }
             },
@@ -1122,7 +1123,7 @@ function App() {
             <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 mb-4">
               <p className="text-blue-300 text-sm">
                 ℹ️ <strong>Standalone Q&A Mode:</strong> This mode is completely independent from any config files you may have uploaded.
-                Ask general Sentry questions and get expert guidance without config-specific analysis.
+                Get expert answers about Sentry without needing to provide a config. Ask about features, troubleshooting, best practices, or any Sentry-related topic.
               </p>
             </div>
             <p className="text-gray-400 text-sm mb-4">
@@ -1236,10 +1237,46 @@ function App() {
               <span>Answer</span>
             </h2>
             <div className="bg-black p-6 rounded-lg border border-secondary/30">
-              <div className="prose prose-invert max-w-none">
-                <div className="text-gray-200 whitespace-pre-wrap leading-relaxed">
+              <div className="prose prose-invert max-w-none text-gray-200 leading-relaxed">
+                <ReactMarkdown
+                  components={{
+                    a: ({ node, ...props }) => (
+                      <a
+                        {...props}
+                        className="text-blue-400 hover:text-blue-300 underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      />
+                    ),
+                    code: ({ node, inline, ...props }) => (
+                      inline ? (
+                        <code className="bg-gray-800 px-2 py-1 rounded text-sm text-purple-300" {...props} />
+                      ) : (
+                        <code className="block bg-gray-900 p-3 rounded text-sm text-green-300 overflow-x-auto" {...props} />
+                      )
+                    ),
+                    ul: ({ node, ...props }) => (
+                      <ul className="list-disc list-inside space-y-1 my-2" {...props} />
+                    ),
+                    ol: ({ node, ...props }) => (
+                      <ol className="list-decimal list-inside space-y-1 my-2" {...props} />
+                    ),
+                    h1: ({ node, ...props }) => (
+                      <h1 className="text-2xl font-bold mt-4 mb-2" {...props} />
+                    ),
+                    h2: ({ node, ...props }) => (
+                      <h2 className="text-xl font-bold mt-3 mb-2" {...props} />
+                    ),
+                    h3: ({ node, ...props }) => (
+                      <h3 className="text-lg font-bold mt-2 mb-1" {...props} />
+                    ),
+                    p: ({ node, ...props }) => (
+                      <p className="mb-3" {...props} />
+                    ),
+                  }}
+                >
                   {generalAnswer}
-                </div>
+                </ReactMarkdown>
               </div>
             </div>
             <div className="mt-4 flex gap-3">
@@ -1296,7 +1333,7 @@ function App() {
                 <div>
                   <h2 className="text-3xl font-bold text-white mb-2">📊 Analysis Complete</h2>
                   <p className="text-gray-300">
-                    {result.correctConfig.length} items correct • {result.problems.length} problems found • {result.suggestions.length} suggestions
+                    {result.correctConfig?.length || 0} items correct • {result.problems?.length || 0} problems found • {result.suggestions?.length || 0} suggestions
                   </p>
                 </div>
                 <div className="flex gap-3">
@@ -1346,7 +1383,7 @@ function App() {
             )}
 
             {/* Problems Detected */}
-            {result.problems.length > 0 && (
+            {result.problems && result.problems.length > 0 && (
               <div className="card p-6">
                 <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
                   <span className="text-primary">❌</span>

@@ -308,7 +308,7 @@ Return ONLY valid JSON matching the specified structure. Do not include markdown
 
     const stream = await client.messages.create({
       model: MODELS[model],
-      max_tokens: 8000,
+      max_tokens: 16000,
       system: SYSTEM_PROMPT,
       messages: [
         {
@@ -510,7 +510,7 @@ Return ONLY valid JSON matching the specified structure. Do not include markdown
 
     const messageConfig = {
       model: MODELS[model],
-      max_tokens: 8000,
+      max_tokens: 16000,
       system: SYSTEM_PROMPT,
       messages: [
         {
@@ -859,19 +859,41 @@ EXPERTISE AREAS:
 - SDK-specific quirks and version-specific features
 - Sentry product features and limitations
 
+DOCUMENTATION LINKS - CRITICAL REQUIREMENT:
+You MUST include relevant documentation links in your responses. Use markdown format: [Link Text](URL)
+
+Common Sentry documentation URLs to reference:
+- Main docs: https://docs.sentry.io/
+- Platform docs: https://docs.sentry.io/platforms/{platform}/ (e.g., javascript, python, react-native)
+- Configuration: https://docs.sentry.io/platforms/{platform}/configuration/
+- Performance: https://docs.sentry.io/product/performance/
+- Session Replay: https://docs.sentry.io/product/session-replay/
+- Source Maps: https://docs.sentry.io/platforms/javascript/sourcemaps/
+- Integrations: https://docs.sentry.io/platforms/{platform}/integrations/
+- Sampling: https://docs.sentry.io/platforms/{platform}/configuration/sampling/
+- Filtering: https://docs.sentry.io/platforms/{platform}/configuration/filtering/
+- Best Practices: https://docs.sentry.io/platforms/{platform}/best-practices/
+
+When answering, include 2-3 relevant documentation links formatted as:
+📚 **Related Documentation:**
+- [Topic Name](https://docs.sentry.io/path/to/topic)
+- [Another Topic](https://docs.sentry.io/path/to/another)
+
 GITHUB KNOWLEDGE:
 You have access to Sentry's GitHub repositories and can reference:
 - Known issues and their solutions
 - Feature requests and roadmap items
 - SDK-specific bugs and workarounds
 - Community discussions and resolutions
+Format: "📌 [Issue Title](https://github.com/getsentry/repo-name/issues/123)"
 
 RESPONSE FORMAT:
 - Provide clear, actionable answers based on Sentry documentation
 - Give general examples and explanations (not modifications to a specific config)
 - Include code examples when relevant as standalone examples
+- ALWAYS include relevant documentation links in markdown format
 - Reference specific Sentry concepts and features
-- Link to GitHub issues/discussions when applicable (format: "📌 [Title](URL)")
+- Link to GitHub issues/discussions when applicable
 - Suggest related features or best practices the user may not know about
 
 Answer the user's Sentry question with specific, practical guidance as a standalone answer.`;
@@ -887,7 +909,7 @@ Answer the user's Sentry question with specific, practical guidance as a standal
 
         const stream = await client.messages.create({
           model: MODELS[model],
-          max_tokens: 8000,
+          max_tokens: 16000,
           system: generalSystemPrompt,
           messages: [
             {
