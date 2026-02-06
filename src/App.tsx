@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import * as Sentry from '@sentry/react'
-import { analyzeConfig, type AnalysisResult } from './services/analyzer'
+import { type AnalysisResult } from './services/analyzer'
 import {
   analyzeConfigStreaming,
   analyzeConfigEnhanced,
@@ -13,8 +13,11 @@ import { maskSensitiveData } from './utils/security'
 import { exportToPDF } from './utils/pdfExporter'
 
 function App() {
+  const [mode, setMode] = useState<'config' | 'general'>('config')
   const [configCode, setConfigCode] = useState('')
   const [issueContext, setIssueContext] = useState('')
+  const [generalQuestion, setGeneralQuestion] = useState('')
+  const [generalAnswer, setGeneralAnswer] = useState('')
   const [sdkType, setSdkType] = useState('JavaScript')
   const [model, setModel] = useState<'sonnet-4' | 'opus-4.5'>('sonnet-4')
   const [useExtendedThinking, setUseExtendedThinking] = useState(false)
@@ -63,12 +66,10 @@ function App() {
 
   // Mask DSNs in analysis results
   const maskResultDSNs = (result: AnalysisResult): AnalysisResult => {
-    const dsnPattern = /https?:\/\/[a-f0-9]{32}@[a-z0-9-]+\.ingest\.[a-z]+\.sentry\.io\/\d+/gi
-    const maskDSN = (text: string) => text.replace(dsnPattern, 'https://***MASKED_DSN***@your-org.ingest.sentry.io/***')
-
+    // Use the comprehensive masking utility for all secret types
     const maskObject = (obj: any): any => {
       if (typeof obj === 'string') {
-        return maskDSN(obj)
+        return maskSensitiveData(obj).maskedContent
       }
       if (Array.isArray(obj)) {
         return obj.map(maskObject)
@@ -90,7 +91,7 @@ function App() {
   useEffect(() => {
     if (uploadedFiles.length > 0) {
       const combined = uploadedFiles
-        .map((f, i) => `// File: ${f.name}\n${f.content}`)
+        .map((f) => `// File: ${f.name}\n${f.content}`)
         .join('\n\n' + '='.repeat(80) + '\n\n')
       setConfigCode(combined)
     }
@@ -429,6 +430,138 @@ function App() {
     )
   }
 
+  const handleGeneralQuery = async () => {
+    if (!generalQuestion.trim()) {
+      alert('Please enter a Sentry question')
+      return
+    }
+
+    setAnalyzing(true)
+    setGeneralAnswer('')
+    setThinking('')
+    setAnalysisProgress(0)
+
+    const startTime = Date.now()
+
+    await Sentry.startSpan(
+      {
+        name: 'general.query',
+        op: 'general.query',
+        attributes: {
+          'query.sdk_type': sdkType,
+          'query.model': model,
+          'query.extended_thinking': useExtendedThinking,
+        }
+      },
+      async (span) => {
+        try {
+          // Streaming general query
+          let thinkingText = ''
+          let answerText = ''
+
+          const response = await fetch('http://localhost:3001/api/general-query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              question: generalQuestion,
+              sdkType,
+              model,
+              useExtendedThinking,
+            }),
+          })
+
+          if (!response.ok) {
+            throw new Error('Failed to process query')
+          }
+
+          const reader = response.body?.getReader()
+          const decoder = new TextDecoder()
+
+          if (!reader) throw new Error('No response stream')
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            const chunk = decoder.decode(value, { stream: true })
+            const lines = chunk.split('\n')
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const event = JSON.parse(line.slice(6))
+
+                  switch (event.type) {
+                    case 'thinking_start':
+                      setThinking('🤔 Thinking deeply...')
+                      setAnalysisProgress(10)
+                      break
+                    case 'thinking':
+                      thinkingText += event.content
+                      setThinking(thinkingText)
+                      setAnalysisProgress(Math.min(30, 10 + (thinkingText.length / 100)))
+                      break
+                    case 'thinking_complete':
+                      setThinking(prev => prev + '\n\n✅ Analysis complete')
+                      setAnalysisProgress(35)
+                      break
+                    case 'text':
+                      answerText += event.content
+                      setGeneralAnswer(answerText)
+                      setAnalysisProgress(Math.min(95, 35 + (answerText.length / 50)))
+                      break
+                    case 'complete':
+                      setGeneralAnswer(event.answer)
+                      setAnalysisProgress(100)
+                      break
+                    case 'error':
+                      alert(`Error: ${event.error}`)
+                      break
+                  }
+                } catch (e) {
+                  console.error('Failed to parse SSE event:', e)
+                }
+              }
+            }
+          }
+
+          span.setStatus({ code: 1, message: 'ok' })
+          span.setAttribute('query.success', true)
+        } catch (error) {
+          console.error('Query error:', error)
+          alert(`Error processing question: ${error instanceof Error ? error.message : 'Unknown error'}`)
+
+          span.setStatus({ code: 2, message: 'Query failed' })
+          Sentry.captureException(error, {
+            level: 'error',
+            tags: {
+              operation: 'general.query',
+              sdk_type: sdkType,
+              model: model,
+              extended_thinking: useExtendedThinking.toString(),
+            },
+            contexts: {
+              query: {
+                question_length: generalQuestion.length,
+              }
+            },
+            fingerprint: ['general-query-error', sdkType, model]
+          })
+          throw error
+        } finally {
+          const queryTimeMs = Date.now() - startTime
+          span.setAttribute('query.duration_ms', queryTimeMs)
+
+          Sentry.metrics.distribution('general.query.duration', queryTimeMs, {
+            unit: 'millisecond',
+          })
+
+          setAnalyzing(false)
+        }
+      }
+    )
+  }
+
   const handleGenerateFixedConfig = async () => {
     if (!result || result.problems.length === 0) return
 
@@ -501,7 +634,7 @@ function App() {
           'export.sdk_type': sdkType,
           'export.model': model,
           'export.problem_count': result.problems.length,
-          'export.recommendation_count': result.recommendations.length,
+          'export.has_recommendations': !!result.recommendations,
         }
       },
       (span) => {
@@ -636,11 +769,48 @@ function App() {
           <p className="text-gray-500 text-sm mb-4">
             Specialized Sentry troubleshooting expert trained on official Sentry documentation
           </p>
+
+          {/* Mode Selector */}
+          <div className="flex justify-center gap-4 mb-4">
+            <button
+              onClick={() => {
+                setMode('config')
+                setGeneralAnswer('')
+                setResult(null)
+              }}
+              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                mode === 'config'
+                  ? 'bg-primary text-white shadow-lg'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              📋 Config Analysis
+            </button>
+            <button
+              onClick={() => {
+                setMode('general')
+                setResult(null)
+                setGeneralAnswer('')
+              }}
+              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                mode === 'general'
+                  ? 'bg-secondary text-white shadow-lg'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              💬 General Q&A
+            </button>
+          </div>
+
           <div className="mt-4 flex justify-center gap-2 text-sm text-gray-500">
             <span className="px-3 py-1 bg-primary/20 rounded-full">🚀 Streaming</span>
             <span className="px-3 py-1 bg-secondary/20 rounded-full">🧠 Extended Thinking</span>
-            <span className="px-3 py-1 bg-primary/20 rounded-full">💬 Interactive Chat</span>
-            <span className="px-3 py-1 bg-secondary/20 rounded-full">🔧 Auto-Fix Generation</span>
+            {mode === 'config' && (
+              <>
+                <span className="px-3 py-1 bg-primary/20 rounded-full">💬 Interactive Chat</span>
+                <span className="px-3 py-1 bg-secondary/20 rounded-full">🔧 Auto-Fix Generation</span>
+              </>
+            )}
           </div>
         </div>
 
@@ -748,9 +918,10 @@ function App() {
         </div>
 
         {/* Input Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Left Column: Config Input */}
-          <div className="card p-6">
+        {mode === 'config' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Left Column: Config Input */}
+            <div className="card p-6">
             <h2 className="text-2xl font-semibold mb-4 text-primary">
               📝 Configuration Code
             </h2>
@@ -930,6 +1101,78 @@ function App() {
             )}
           </div>
         </div>
+        ) : (
+          /* General Q&A Mode */
+          <div className="card p-6 mb-8">
+            <h2 className="text-2xl font-semibold mb-4 text-secondary">
+              💬 Ask a General Sentry Question
+            </h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Get expert answers about Sentry without needing to provide a config. Ask about features, troubleshooting, best practices, or any Sentry-related topic.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                SDK Type (Optional)
+              </label>
+              <select
+                value={sdkType}
+                onChange={(e) => setSdkType(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                <option>JavaScript</option>
+                <option>Python</option>
+                <option>Ruby</option>
+                <option>PHP</option>
+                <option>Java</option>
+                <option>Go</option>
+                <option>.NET</option>
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Your Question
+              </label>
+              <textarea
+                value={generalQuestion}
+                onChange={(e) => setGeneralQuestion(e.target.value)}
+                placeholder={`Ask anything about Sentry:
+- How do I set up source maps in Next.js?
+- Why aren't my errors showing up in Sentry?
+- What's the difference between tracesSampleRate and profilesSampleRate?
+- How do I bypass ad-blockers for Sentry?
+- What are best practices for sampling in production?
+- How do I configure session replay?`}
+                className="w-full h-64 px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+              />
+            </div>
+
+            <button
+              onClick={handleGeneralQuery}
+              disabled={analyzing || !generalQuestion.trim()}
+              className="w-full px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {analyzing ? '🔍 Processing...' : '🚀 Get Answer'}
+            </button>
+
+            {/* Progress Bar */}
+            {analyzing && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-400">Processing</span>
+                  <span className="text-sm font-semibold text-secondary">{Math.round(analysisProgress)}%</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-secondary to-primary h-full rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${analysisProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Extended Thinking Display */}
         {thinking && (
@@ -961,8 +1204,43 @@ function App() {
           </div>
         )}
 
+        {/* General Q&A Answer Display */}
+        {mode === 'general' && generalAnswer && (
+          <div className="card p-6 mb-8">
+            <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+              <span className="text-secondary">💡</span>
+              <span>Answer</span>
+            </h2>
+            <div className="bg-black p-6 rounded-lg border border-secondary/30">
+              <div className="prose prose-invert max-w-none">
+                <div className="text-gray-200 whitespace-pre-wrap leading-relaxed">
+                  {generalAnswer}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={() => {
+                  setGeneralQuestion('')
+                  setGeneralAnswer('')
+                  setThinking('')
+                }}
+                className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-all"
+              >
+                Ask Another Question
+              </button>
+              <button
+                onClick={() => navigator.clipboard.writeText(generalAnswer)}
+                className="px-6 py-2 bg-primary/20 text-primary hover:bg-primary/30 rounded-lg font-semibold transition-all"
+              >
+                📋 Copy Answer
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Results Section */}
-        {result && (
+        {mode === 'config' && result && (
           <div className="space-y-6">
             {/* Complexity Warning - Requires Human Review */}
             {result.complexityAssessment?.requiresHumanReview && (
@@ -1088,6 +1366,35 @@ function App() {
                           {problem.fix}
                         </pre>
                       </div>
+                      {problem.githubIssue && (
+                        <div className="mt-3 p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <span className="text-purple-400">📌</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <a
+                                  href={problem.githubIssue.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-purple-300 hover:text-purple-200 font-semibold underline"
+                                >
+                                  {problem.githubIssue.title}
+                                </a>
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                  problem.githubIssue.status === 'open'
+                                    ? 'bg-green-900/30 text-green-400'
+                                    : 'bg-purple-900/30 text-purple-400'
+                                }`}>
+                                  {problem.githubIssue.status.toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-400">
+                                {problem.githubIssue.description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     )
                   })}
@@ -1145,9 +1452,91 @@ function App() {
                       <p className="text-gray-300">
                         {suggestion.description}
                       </p>
+                      {suggestion.githubIssue && (
+                        <div className="mt-3 p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <span className="text-purple-400">📌</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <a
+                                  href={suggestion.githubIssue.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-purple-300 hover:text-purple-200 font-semibold underline"
+                                >
+                                  {suggestion.githubIssue.title}
+                                </a>
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                  suggestion.githubIssue.status === 'open'
+                                    ? 'bg-green-900/30 text-green-400'
+                                    : 'bg-purple-900/30 text-purple-400'
+                                }`}>
+                                  {suggestion.githubIssue.status.toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-400">
+                                {suggestion.githubIssue.description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Related Resources */}
+            {result.relatedResources && result.relatedResources.length > 0 && (
+              <div className="card p-6 bg-gradient-to-r from-purple-900/20 to-indigo-900/20 border-l-4 border-purple-500">
+                <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                  <span className="text-purple-400">🔗</span>
+                  <span>Related GitHub Discussions & Feature Requests</span>
+                </h2>
+                <div className="space-y-3">
+                  {result.relatedResources.map((resource, i) => {
+                    const typeEmojis = {
+                      'github_issue': '🐛',
+                      'github_discussion': '💬',
+                      'feature_request': '✨'
+                    };
+                    const typeLabels = {
+                      'github_issue': 'Issue',
+                      'github_discussion': 'Discussion',
+                      'feature_request': 'Feature Request'
+                    };
+
+                    return (
+                      <div key={i} className="p-4 bg-gray-800/50 rounded-lg border border-purple-500/20">
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">{typeEmojis[resource.type]}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-300 rounded">
+                                {typeLabels[resource.type]}
+                              </span>
+                              <a
+                                href={resource.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-purple-300 hover:text-purple-200 font-semibold underline text-lg"
+                              >
+                                {resource.title}
+                              </a>
+                            </div>
+                            <p className="text-gray-300 text-sm">
+                              {resource.description}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-gray-400 text-sm mt-4">
+                  💡 These resources from Sentry's GitHub repositories provide additional context about your configuration or issues you're experiencing.
+                </p>
               </div>
             )}
 
@@ -1222,8 +1611,8 @@ function App() {
           </div>
         )}
 
-        {/* Floating Chat Button - Only show when results exist */}
-        {result && (
+        {/* Floating Chat Button - Only show when results exist in config mode */}
+        {mode === 'config' && result && (
           <button
             onClick={scrollToChat}
             className="fixed bottom-8 right-8 bg-primary text-white p-4 rounded-full shadow-lg hover:bg-primary/90 transition-all transform hover:scale-110 z-50 ring-4 ring-primary/30"

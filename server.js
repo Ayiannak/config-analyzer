@@ -134,6 +134,41 @@ Unlike generic AI, you:
 - Provide fixes based on official Sentry best practices, not generic advice
 - Recognize SDK-specific quirks and version-specific issues
 - Suggest relevant Sentry features users may not know about
+- Search and reference GitHub issues, feature requests, and community discussions
+
+GITHUB INTEGRATION - WHEN TO SEARCH:
+Search Sentry's GitHub repositories when:
+- User is trying to configure a feature that may not exist yet
+- User reports behavior that seems like a bug or limitation
+- Configuration option doesn't work as expected (might be a known issue)
+- User asks about upcoming features or roadmap items
+- Error messages suggest SDK-specific bugs
+- Unusual behavior that might be documented in issues
+
+GITHUB REPOSITORIES BY SDK:
+- JavaScript/React/Vue/Angular: getsentry/sentry-javascript
+- Python/Django/Flask: getsentry/sentry-python
+- Ruby/Rails: getsentry/sentry-ruby
+- Java/Kotlin/Android: getsentry/sentry-java
+- PHP/Laravel: getsentry/sentry-php
+- Go: getsentry/sentry-go
+- .NET/C#: getsentry/sentry-dotnet
+- React Native: getsentry/sentry-react-native
+- iOS/Swift: getsentry/sentry-cocoa
+- Dart/Flutter: getsentry/sentry-dart
+
+HOW TO PRESENT GITHUB FINDINGS:
+When you find relevant GitHub issues/discussions:
+1. Mention if this is a known issue/limitation/feature request
+2. Provide the GitHub issue link with title
+3. Include issue status (open/closed, when opened, recent activity)
+4. If closed, mention the fix version or workaround
+5. If open, suggest upvoting or following for updates
+6. Format as: "📌 Related GitHub Discussion: [Issue Title](GitHub URL) - Status: Open/Closed"
+
+Example format:
+"📌 Related Feature Request: [Add support for custom breadcrumb types](https://github.com/getsentry/sentry-java/issues/3958) - Status: Open (opened 2023)
+This feature is being tracked by the Sentry team. You can upvote this issue to show support or follow it for updates."
 
 Analyze Sentry SDK initialization code and identify:
 1. What's configured correctly according to Sentry best practices
@@ -167,13 +202,33 @@ Return your analysis as a JSON object with this structure:
       "title": "Short problem title",
       "description": "Detailed explanation of why this is a problem and how it relates to reported issues",
       "fix": "Exact code snippet showing the fix",
-      "severity": "low|medium|high|critical"
+      "severity": "low|medium|high|critical",
+      "githubIssue": {
+        "url": "GitHub issue URL if relevant",
+        "title": "Issue title",
+        "status": "open|closed",
+        "description": "Brief context about the issue (e.g., 'Known limitation tracked in SDK repo' or 'Fixed in version X.Y.Z')"
+      }
     }
   ],
   "suggestions": [
     {
       "title": "Suggestion title",
-      "description": "Why this would be beneficial"
+      "description": "Why this would be beneficial",
+      "githubIssue": {
+        "url": "GitHub feature request URL if relevant",
+        "title": "Feature request title",
+        "status": "open|closed",
+        "description": "Context about the feature request"
+      }
+    }
+  ],
+  "relatedResources": [
+    {
+      "type": "github_issue|github_discussion|feature_request",
+      "title": "Resource title",
+      "url": "Full URL",
+      "description": "Why this is relevant to the user's situation"
     }
   ],
   "completeFixedConfig": "Complete corrected Sentry.init() configuration with all fixes applied",
@@ -182,7 +237,9 @@ Return your analysis as a JSON object with this structure:
     "reason": "Brief explanation of why human review is needed (only if requiresHumanReview is true)",
     "recommendedAction": "Specific guidance (e.g., 'Contact Sentry support', 'Consult with your team's senior engineer', 'Schedule architecture review')"
   }
-}`;
+}
+
+NOTE: githubIssue fields are optional - only include them when you've searched and found relevant GitHub discussions/issues/feature requests.`;
 
 // Streaming analysis endpoint with extended thinking
 app.post('/api/analyze-stream', async (req, res) => {
@@ -751,6 +808,149 @@ Generate a complete, production-ready Sentry.init() configuration that fixes all
         res.status(500).json({
           error: error.message || 'Failed to generate fixed configuration'
         });
+      }
+    }
+  );
+});
+
+// General Sentry Q&A endpoint (no config required)
+app.post('/api/general-query', async (req, res) => {
+  const startTime = Date.now();
+
+  return await Sentry.startSpan(
+    {
+      name: 'POST /api/general-query',
+      op: 'http.server',
+      attributes: {
+        'http.method': 'POST',
+        'http.route': '/api/general-query',
+      }
+    },
+    async (span) => {
+      try {
+        const { question, sdkType, model = 'sonnet-4', useExtendedThinking = false } = req.body;
+
+        // Add request attributes
+        span.setAttribute('api.sdk_type', sdkType || 'general');
+        span.setAttribute('api.model', model);
+        span.setAttribute('api.extended_thinking', useExtendedThinking);
+        span.setAttribute('api.question_length', question?.length || 0);
+
+        if (!question || !question.trim()) {
+          span.setStatus({ code: 2, message: 'Missing question' });
+          return res.status(400).json({ error: 'Question is required' });
+        }
+
+        const generalSystemPrompt = `You are an expert Sentry troubleshooting specialist with comprehensive knowledge of Sentry's official documentation, SDK implementations, and best practices.
+
+EXPERTISE AREAS:
+- All Sentry SDK configurations (JavaScript, Python, Ruby, PHP, Java, Go, .NET, React Native, etc.)
+- Error tracking, performance monitoring, session replay, profiling
+- Integration setup and troubleshooting
+- Common issues: events not sending, source maps, sample rates, ad-blocker bypass
+- Best practices for production deployments
+- SDK-specific quirks and version-specific features
+- Sentry product features and limitations
+
+GITHUB KNOWLEDGE:
+You have access to Sentry's GitHub repositories and can reference:
+- Known issues and their solutions
+- Feature requests and roadmap items
+- SDK-specific bugs and workarounds
+- Community discussions and resolutions
+
+RESPONSE FORMAT:
+- Provide clear, actionable answers based on Sentry documentation
+- Include code examples when relevant
+- Reference specific Sentry concepts and features
+- Link to GitHub issues/discussions when applicable (format: "📌 [Title](URL)")
+- Suggest related features or best practices the user may not know about
+
+Answer the user's Sentry question with specific, practical guidance.`;
+
+        // Set up SSE for streaming
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const userPrompt = sdkType
+          ? `SDK Context: ${sdkType}\n\nQuestion: ${question}`
+          : `Question: ${question}`;
+
+        const stream = await client.messages.create({
+          model: MODELS[model],
+          max_tokens: 8000,
+          system: generalSystemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: userPrompt
+            }
+          ],
+          stream: true,
+          ...(useExtendedThinking && { thinking: { type: 'enabled', budget_tokens: 10000 } })
+        });
+
+        let fullText = '';
+        let thinkingContent = '';
+
+        for await (const event of stream) {
+          if (event.type === 'content_block_start') {
+            if (event.content_block.type === 'thinking') {
+              res.write(`data: ${JSON.stringify({ type: 'thinking_start' })}\n\n`);
+            }
+          } else if (event.type === 'content_block_delta') {
+            if (event.delta.type === 'thinking_delta') {
+              thinkingContent += event.delta.thinking;
+              res.write(`data: ${JSON.stringify({ type: 'thinking', content: event.delta.thinking })}\n\n`);
+            } else if (event.delta.type === 'text_delta') {
+              fullText += event.delta.text;
+              // Stream the text in real-time for general queries
+              res.write(`data: ${JSON.stringify({ type: 'text', content: event.delta.text })}\n\n`);
+            }
+          } else if (event.type === 'content_block_stop') {
+            if (thinkingContent) {
+              res.write(`data: ${JSON.stringify({ type: 'thinking_complete' })}\n\n`);
+            }
+          } else if (event.type === 'message_stop') {
+            res.write(`data: ${JSON.stringify({ type: 'complete', answer: fullText })}\n\n`);
+          }
+        }
+
+        const duration = Date.now() - startTime;
+        span.setAttribute('api.duration_ms', duration);
+        span.setAttribute('api.response_length', fullText.length);
+        span.setStatus({ code: 1, message: 'ok' });
+
+        Sentry.metrics.distribution('api.general_query.duration', duration, {
+          unit: 'millisecond',
+        });
+
+        res.end();
+      } catch (error) {
+        console.error('Error in general query:', error);
+
+        const duration = Date.now() - startTime;
+        span.setAttribute('api.duration_ms', duration);
+        span.setStatus({ code: 2, message: error.message });
+        Sentry.captureException(error, {
+          level: 'error',
+          tags: {
+            operation: 'api.general_query',
+            sdk_type: req.body.sdkType || 'general',
+            model: req.body.model || 'sonnet-4',
+            extended_thinking: req.body.useExtendedThinking || false,
+          },
+          contexts: {
+            request: {
+              question_length: req.body.question?.length || 0,
+            }
+          },
+          fingerprint: ['api-general-query-error', req.body.model]
+        });
+
+        res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
+        res.end();
       }
     }
   );
