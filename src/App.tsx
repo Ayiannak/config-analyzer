@@ -756,19 +756,16 @@ function App() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold mb-4 bg-accent-gradient bg-clip-text text-transparent">
+          <h1 className="text-5xl font-bold mb-4 pb-2 bg-accent-gradient bg-clip-text text-transparent leading-tight">
             Sentry Config Analyzer
           </h1>
           <div className="flex items-center justify-center gap-3 mb-2">
-            <p className="text-gray-400 text-lg">
-              AI-Powered Configuration Analysis with Claude {model === 'opus-4.5' ? 'Opus 4.5' : 'Sonnet 4'}
-            </p>
-            <span className="px-3 py-1 bg-purple-600/30 text-purple-300 rounded-full text-sm font-semibold border border-purple-500/50">
-              📚 Powered by Sentry Docs
+            <span className="px-4 py-2 bg-purple-600/30 text-purple-300 rounded-full text-base font-semibold border border-purple-500/50">
+              📚 Powered by {model === 'opus-4.5' ? 'Opus 4.5' : 'Sonnet 4'} & Sentry Docs
             </span>
           </div>
           <p className="text-gray-500 text-sm mb-4">
-            Specialized Sentry troubleshooting expert trained on official Sentry documentation
+            Expert Sentry troubleshooting and configuration analysis
           </p>
 
           {/* Mode Selector */}
@@ -1065,22 +1062,26 @@ function App() {
           {/* Right Column: Issue Context */}
           <div className="card p-6">
             <h2 className="text-2xl font-semibold mb-4 text-secondary">
-              🐛 Issue Context
+              🐛 Issue Context <span className="text-sm text-gray-400 font-normal">(Optional)</span>
             </h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Provide specific issues for targeted troubleshooting, or leave blank for a general config health check and best practices review.
+            </p>
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                What issues are they experiencing?
+                What problems are you experiencing?
               </label>
               <textarea
                 value={issueContext}
                 onChange={(e) => setIssueContext(e.target.value)}
-                placeholder={`Describe the problems:
+                placeholder={`Describe specific issues (optional):
 - Not seeing errors from checkout flow
 - Source maps aren't loading
 - Performance data is missing
 - Session replays aren't capturing
-- etc...`}
+
+Leave empty for general config review`}
                 className="w-full h-96 px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
               />
             </div>
