@@ -20,12 +20,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background-color: #E68600;
+    background-color: #A3CC52;
     border-radius: 9999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background-color: #FF9500;
+    background-color: #CDFF66;
   }
 }
 
@@ -46,13 +46,13 @@
   }
 
   .btn-primary {
-    background-color: #FF9500;
-    color: white;
+    background-color: #CDFF66;
+    color: #1f2937;
     transition: all 0.2s;
   }
 
   .btn-primary:hover {
-    box-shadow: 0 10px 40px -10px rgba(255, 149, 0, 0.5);
+    box-shadow: 0 10px 40px -10px rgba(205, 255, 102, 0.5);
     transform: scale(1.05);
   }
 
@@ -78,5 +78,14 @@
 
   .animate-pulse-slow {
     animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Ensure dark text on bright lime green backgrounds for better contrast */
+  .bg-primary {
+    color: #111827 !important;
+  }
+
+  .bg-primary\/20 {
+    color: #CDFF66 !important;
   }
 }

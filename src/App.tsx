@@ -782,7 +782,7 @@ function App() {
               }}
               className={`px-6 py-3 rounded-lg font-semibold transition-all ${
                 mode === 'config'
-                  ? 'bg-primary text-white shadow-lg'
+                  ? 'bg-primary text-gray-900 shadow-lg'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
               }`}
             >
@@ -899,7 +899,7 @@ function App() {
                 onClick={() => setUseExtendedThinking(!useExtendedThinking)}
                 className={`w-full px-4 py-2 rounded-lg font-medium transition-all ${
                   useExtendedThinking
-                    ? 'bg-primary text-white'
+                    ? 'bg-primary text-gray-900'
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
               >
@@ -1088,7 +1088,7 @@ function App() {
             <button
               onClick={handleAnalyze}
               disabled={analyzing || !configCode.trim()}
-              className="w-full px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="w-full px-6 py-3 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {analyzing ? '🔍 Analyzing...' : '🚀 Analyze Configuration'}
             </button>
@@ -1636,7 +1636,7 @@ function App() {
                             <div
                               className={`max-w-[80%] p-3 rounded-lg ${
                                 msg.role === 'user'
-                                  ? 'bg-primary text-white'
+                                  ? 'bg-primary text-gray-900'
                                   : 'bg-gray-800 text-gray-200'
                               }`}
                             >
@@ -1663,7 +1663,7 @@ function App() {
                     <button
                       onClick={handleSendMessage}
                       disabled={sendingMessage || !chatInput.trim()}
-                      className="px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      className="px-6 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
                       {sendingMessage ? '⏳' : '📤'}
                     </button>
@@ -1678,7 +1678,7 @@ function App() {
         {mode === 'config' && result && (
           <button
             onClick={scrollToChat}
-            className="fixed bottom-8 right-8 bg-primary text-white p-4 rounded-full shadow-lg hover:bg-primary/90 transition-all transform hover:scale-110 z-50 ring-4 ring-primary/30"
+            className="fixed bottom-8 right-8 bg-primary text-gray-900 p-4 rounded-full shadow-lg hover:bg-primary/90 transition-all transform hover:scale-110 z-50 ring-4 ring-primary/30"
             title="Jump to Chat with Claude"
           >
             <span className="text-2xl">💬</span>
