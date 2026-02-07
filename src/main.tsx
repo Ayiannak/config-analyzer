@@ -9,6 +9,16 @@ Sentry.init({
   integrations: [
     Sentry.browserTracingIntegration(),
     Sentry.replayIntegration(),
+    Sentry.feedbackIntegration({
+      // Display feedback button in bottom-right corner
+      colorScheme: "dark",
+      showBranding: false,
+      triggerLabel: "Feedback",
+      formTitle: "Send Feedback",
+      submitButtonLabel: "Send Feedback",
+      messagePlaceholder: "What's on your mind? Found a bug? Have a feature request?",
+      successMessageText: "Thank you for your feedback!",
+    }),
   ],
   tracesSampleRate: 1.0,
   tracePropagationTargets: ["localhost", /^https:\/\/yourserver\.io\/api/],
