@@ -786,9 +786,14 @@ function App() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold mb-4 pb-2 bg-accent-gradient bg-clip-text text-transparent leading-tight">
-            Sentry Copilot
-          </h1>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <h1 className="text-5xl font-bold pb-2 bg-accent-gradient bg-clip-text text-transparent leading-tight">
+              Sentry Copilot
+            </h1>
+            <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/40 rounded-lg text-sm font-bold uppercase tracking-wider">
+              Beta
+            </span>
+          </div>
           <div className="flex items-center justify-center gap-3 mb-2">
             <span className="px-4 py-2 bg-purple-600/30 text-purple-300 rounded-full text-base font-semibold border border-purple-500/50">
               📚 Powered by {model === 'opus-4.5' ? 'Opus 4.5' : 'Sonnet 4'} & Sentry Docs
