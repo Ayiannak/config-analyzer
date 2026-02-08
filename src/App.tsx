@@ -12,6 +12,16 @@ import {
 } from './services/enhanced-analyzer'
 import { maskSensitiveData } from './utils/security'
 import { exportToPDF } from './utils/pdfExporter'
+import {
+  trackQuerySubmitted,
+  trackQueryCompleted,
+  trackOutcome,
+  trackComplexityAssessment,
+  trackIssuesFound,
+  trackModeSwitch,
+  trackSDKSelection,
+  trackQueryError
+} from './utils/analytics'
 
 function App() {
   const [mode, setMode] = useState<'config' | 'general'>('config')
@@ -21,6 +31,12 @@ function App() {
   const [generalChatMessages, setGeneralChatMessages] = useState<ChatMessage[]>([])
   const [copiedAnswer, setCopiedAnswer] = useState(false)
   const [sdkType, setSdkType] = useState('JavaScript')
+
+  // SDK selection handler with tracking
+  const handleSDKChange = (newSDK: string) => {
+    setSdkType(newSDK)
+    trackSDKSelection(newSDK, mode)
+  }
   const [model, setModel] = useState<'sonnet-4' | 'opus-4.5'>('opus-4.5')
   const [useExtendedThinking, setUseExtendedThinking] = useState(true)
   const [useStreaming, setUseStreaming] = useState(true)
@@ -273,6 +289,15 @@ function App() {
       async (span) => {
         let analysisResult: AnalysisResult | null = null
 
+        // Track query submission
+        trackQuerySubmitted({
+          mode: 'config',
+          sdkType,
+          model,
+          extendedThinking: useExtendedThinking,
+          hasIssueContext: !!issueContext?.trim(),
+        })
+
         try {
       if (useStreaming) {
         // Streaming mode
@@ -366,29 +391,40 @@ function App() {
           span.setStatus({ code: 1, message: 'ok' })
           span.setAttribute('analysis.success', true)
 
+          // Track analytics
+          const duration = Date.now() - startTime
+          trackQueryCompleted({
+            operation: 'config.analysis',
+            duration,
+            model,
+          })
+
+          // Track issues found for product insights
+          if (analysisResult?.problems && analysisResult.problems.length > 0) {
+            trackIssuesFound(analysisResult.problems, sdkType)
+          }
+
           // Track complexity assessment
           if (analysisResult?.complexityAssessment) {
             span.setAttribute('analysis.requires_human_review', analysisResult.complexityAssessment.requiresHumanReview)
 
-            if (analysisResult.complexityAssessment.requiresHumanReview) {
-              // Log complexity warning event
-              Sentry.captureMessage('Complex configuration detected - human review recommended', {
-                level: 'warning',
-                tags: {
-                  sdk_type: sdkType,
-                  model: model,
-                },
-                extra: {
-                  reason: analysisResult.complexityAssessment.reason,
-                  recommended_action: analysisResult.complexityAssessment.recommendedAction,
-                  problem_count: analysisResult.problems.length,
-                }
-              })
-            }
+            trackComplexityAssessment({
+              requiresHumanReview: analysisResult.complexityAssessment.requiresHumanReview,
+              reason: analysisResult.complexityAssessment.reason,
+              problemCount: analysisResult.problems?.length || 0,
+              sdkType,
+            })
           }
         } catch (error) {
           console.error('Analysis error:', error)
           alert(`Error analyzing configuration: ${error instanceof Error ? error.message : 'Unknown error'}`)
+
+          // Track error in analytics
+          trackQueryError(error instanceof Error ? error : new Error('Unknown error'), {
+            mode: 'config',
+            model,
+            sdkType,
+          })
 
           // Mark span as error and capture exception with detailed context
           span.setStatus({ code: 2, message: 'Analysis failed' })
@@ -441,6 +477,13 @@ function App() {
       await navigator.clipboard.writeText(lastAssistantMessage.content)
       setCopiedAnswer(true)
       setTimeout(() => setCopiedAnswer(false), 2000)
+
+      // Track user engagement
+      trackOutcome({
+        action: 'copy_answer',
+        mode: 'general',
+        conversationLength: generalChatMessages.length,
+      })
     } catch (error) {
       console.error('Failed to copy:', error)
       alert('Failed to copy to clipboard')
@@ -481,6 +524,15 @@ function App() {
         }
       },
       async (span) => {
+        // Track query submission
+        trackQuerySubmitted({
+          mode: 'general',
+          sdkType,
+          model,
+          extendedThinking: useExtendedThinking,
+          conversationLength: updatedMessages.length,
+        })
+
         try {
           // Streaming general query
           let thinkingText = ''
@@ -561,6 +613,13 @@ function App() {
           console.error('Query error:', error)
           alert(`Error processing question: ${error instanceof Error ? error.message : 'Unknown error'}`)
 
+          // Track error in analytics
+          trackQueryError(error instanceof Error ? error : new Error('Unknown error'), {
+            mode: 'general',
+            model,
+            sdkType,
+          })
+
           span.setStatus({ code: 2, message: 'Query failed' })
           Sentry.captureException(error, {
             level: 'error',
@@ -582,6 +641,13 @@ function App() {
         } finally {
           const queryTimeMs = Date.now() - startTime
           span.setAttribute('query.duration_ms', queryTimeMs)
+
+          // Track query completion
+          trackQueryCompleted({
+            operation: 'general.query',
+            duration: queryTimeMs,
+            model,
+          })
 
           Sentry.metrics.distribution('general.query.duration', queryTimeMs, {
             unit: 'millisecond',
@@ -679,6 +745,12 @@ function App() {
           })
 
           const duration = Date.now() - startTime
+
+          // Track high-intent action
+          trackOutcome({
+            action: 'download_pdf',
+            mode: 'config',
+          })
 
           // Mark success
           span.setStatus({ code: 1, message: 'ok' })
@@ -807,12 +879,18 @@ function App() {
           <div className="flex justify-center gap-4 mb-4">
             <button
               onClick={() => {
+                const previousMode = mode
                 setMode('config')
                 // Clear general Q&A state
                 setGeneralAnswer('')
                 setGeneralQuestion('')
                 setGeneralChatMessages([])
                 setGeneralThinking('')
+
+                // Track mode switch
+                if (previousMode !== 'config') {
+                  trackModeSwitch(previousMode, 'config')
+                }
               }}
               className={`px-6 py-3 rounded-lg font-semibold transition-all ${
                 mode === 'config'
@@ -824,6 +902,7 @@ function App() {
             </button>
             <button
               onClick={() => {
+                const previousMode = mode
                 setMode('general')
                 // Clear config-related state to prevent any interference
                 setResult(null)
@@ -831,6 +910,11 @@ function App() {
                 setFixedConfig('')
                 setChatMessages([])
                 setStreamingText('')
+
+                // Track mode switch
+                if (previousMode !== 'general') {
+                  trackModeSwitch(previousMode, 'general')
+                }
               }}
               className={`px-6 py-3 rounded-lg font-semibold transition-all ${
                 mode === 'general'
@@ -974,7 +1058,7 @@ function App() {
               </label>
               <select
                 value={sdkType}
-                onChange={(e) => setSdkType(e.target.value)}
+                onChange={(e) => handleSDKChange(e.target.value)}
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option>JavaScript</option>
@@ -1175,7 +1259,7 @@ Leave empty for general config review`}
               </label>
               <select
                 value={sdkType}
-                onChange={(e) => setSdkType(e.target.value)}
+                onChange={(e) => handleSDKChange(e.target.value)}
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option>JavaScript</option>
@@ -1307,9 +1391,20 @@ Leave empty for general config review`}
                 </button>
                 <button
                   onClick={() => {
+                    const conversationLength = generalChatMessages.length
+
                     setGeneralChatMessages([])
                     setGeneralQuestion('')
                     setGeneralThinking('')
+
+                    // Track conversation completion
+                    if (conversationLength > 0) {
+                      trackOutcome({
+                        action: 'new_conversation',
+                        mode: 'general',
+                        conversationLength,
+                      })
+                    }
                   }}
                   className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-all text-sm"
                 >
