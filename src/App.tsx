@@ -30,12 +30,15 @@ function App() {
   const [generalQuestion, setGeneralQuestion] = useState('')
   const [generalChatMessages, setGeneralChatMessages] = useState<ChatMessage[]>([])
   const [copiedAnswer, setCopiedAnswer] = useState(false)
-  const [sdkType, setSdkType] = useState('JavaScript')
+  const [sdkType, setSdkType] = useState('')
 
   // SDK selection handler with tracking
   const handleSDKChange = (newSDK: string) => {
     setSdkType(newSDK)
-    trackSDKSelection(newSDK, mode)
+    // Only track if user actually selected an SDK (not the placeholder)
+    if (newSDK) {
+      trackSDKSelection(newSDK, mode)
+    }
   }
   const [model, setModel] = useState<'sonnet-4' | 'opus-4.5'>('opus-4.5')
   const [useExtendedThinking, setUseExtendedThinking] = useState(true)
@@ -1061,6 +1064,7 @@ function App() {
                 onChange={(e) => handleSDKChange(e.target.value)}
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               >
+                <option value="">Select SDK (Optional)</option>
                 <option>JavaScript</option>
                 <option>Python</option>
                 <option>React Native</option>
@@ -1262,6 +1266,7 @@ Leave empty for general config review`}
                 onChange={(e) => handleSDKChange(e.target.value)}
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent"
               >
+                <option value="">Select SDK (Optional)</option>
                 <option>JavaScript</option>
                 <option>Python</option>
                 <option>React Native</option>
