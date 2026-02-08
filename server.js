@@ -828,18 +828,29 @@ app.post('/api/general-query', async (req, res) => {
     },
     async (span) => {
       try {
-        const { question, sdkType, model = 'sonnet-4', useExtendedThinking = false } = req.body;
+        const { question, messages, sdkType, model = 'sonnet-4', useExtendedThinking = false } = req.body;
+
+        // Support both single question (backward compat) and full conversation messages
+        let conversationMessages;
+        if (messages && Array.isArray(messages) && messages.length > 0) {
+          // Use provided conversation history
+          conversationMessages = messages;
+        } else if (question && question.trim()) {
+          // Convert single question to messages format
+          const userPrompt = sdkType
+            ? `SDK Context: ${sdkType}\n\nQuestion: ${question}`
+            : `Question: ${question}`;
+          conversationMessages = [{ role: 'user', content: userPrompt }];
+        } else {
+          span.setStatus({ code: 2, message: 'Missing question or messages' });
+          return res.status(400).json({ error: 'Question or messages array is required' });
+        }
 
         // Add request attributes
         span.setAttribute('api.sdk_type', sdkType || 'general');
         span.setAttribute('api.model', model);
         span.setAttribute('api.extended_thinking', useExtendedThinking);
-        span.setAttribute('api.question_length', question?.length || 0);
-
-        if (!question || !question.trim()) {
-          span.setStatus({ code: 2, message: 'Missing question' });
-          return res.status(400).json({ error: 'Question is required' });
-        }
+        span.setAttribute('api.message_count', conversationMessages.length);
 
         const generalSystemPrompt = `You are an expert Sentry troubleshooting specialist with comprehensive knowledge of Sentry's official documentation, SDK implementations, and best practices.
 
@@ -903,20 +914,11 @@ Answer the user's Sentry question with specific, practical guidance as a standal
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
-        const userPrompt = sdkType
-          ? `SDK Context: ${sdkType}\n\nQuestion: ${question}`
-          : `Question: ${question}`;
-
         const stream = await client.messages.create({
           model: MODELS[model],
           max_tokens: 16000,
           system: generalSystemPrompt,
-          messages: [
-            {
-              role: 'user',
-              content: userPrompt
-            }
-          ],
+          messages: conversationMessages,
           stream: true,
           ...(useExtendedThinking && { thinking: { type: 'enabled', budget_tokens: 10000 } })
         });
@@ -973,6 +975,7 @@ Answer the user's Sentry question with specific, practical guidance as a standal
           },
           contexts: {
             request: {
+              message_count: req.body.messages?.length || 1,
               question_length: req.body.question?.length || 0,
             }
           },
@@ -996,5 +999,5 @@ app.use(function onError(err, req, res, next) {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Config Analyzer API running on http://localhost:${PORT}`);
+  console.log(`🚀 Sentry Copilot API running on http://localhost:${PORT}`);
 });

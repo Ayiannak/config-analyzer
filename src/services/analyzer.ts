@@ -1,3 +1,17 @@
+export interface GitHubIssue {
+  url: string;
+  title: string;
+  status: 'open' | 'closed';
+  description: string;
+}
+
+export interface RelatedResource {
+  type: 'github_issue' | 'github_discussion' | 'feature_request';
+  title: string;
+  url: string;
+  description: string;
+}
+
 export interface AnalysisResult {
   correctConfig: string[];
   problems: Array<{
@@ -5,8 +19,18 @@ export interface AnalysisResult {
     description: string;
     fix: string;
     severity?: 'low' | 'medium' | 'high' | 'critical';
+    githubIssue?: GitHubIssue;
   }>;
-  suggestions: Array<{ title: string; description: string; code?: string }>;
+  suggestions: Array<{
+    title: string;
+    description: string;
+    code?: string;
+    githubIssue?: GitHubIssue;
+  }>;
+  relatedResources?: RelatedResource[];
+  completeFixedConfig?: string;
+  thinking?: string;
+  recommendations?: string;
   complexityAssessment?: {
     requiresHumanReview: boolean;
     reason?: string;

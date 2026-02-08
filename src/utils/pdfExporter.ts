@@ -677,7 +677,7 @@ export function exportToPDF(options: ExportOptions) {
     doc.setTextColor(...lightGray);
     doc.setFont('helvetica', 'italic');
     doc.text(
-      `Sentry Config Analyzer - Powered by Claude AI | Page ${i} of ${totalPages}`,
+      `Sentry Copilot - Powered by Claude AI | Page ${i} of ${totalPages}`,
       pageWidth / 2,
       pageHeight - 10,
       { align: 'center' }

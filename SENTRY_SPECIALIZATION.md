@@ -1,16 +1,16 @@
-# Sentry Config Analyzer - Specialized Troubleshooting
+# Sentry Copilot - Specialized Troubleshooting
 
 ## What Makes This Tool Different
 
-The Sentry Config Analyzer is **NOT** a generic AI code assistant. It is a **specialized Sentry troubleshooting expert** trained on official Sentry docs and common Sentry-specific issues.
+The Sentry Copilot is **NOT** a generic AI code assistant. It is a **specialized Sentry troubleshooting expert** trained on official Sentry docs and common Sentry-specific issues.
 
 ---
 
 ## Core Differentiation
 
-### Generic AI vs. Sentry Config Analyzer
+### Generic AI vs. Sentry Copilot
 
-| Generic AI | Sentry Config Analyzer |
+| Generic AI | Sentry Copilot |
 |------------|------------------------|
 | Generic coding advice | Sentry-specific troubleshooting |
 | Guesses at configuration issues | References official Sentry docs |
@@ -129,7 +129,7 @@ The analyzer enforces official Sentry best practices:
 ### What Generic AI Might Say:
 > "Your tracesSampleRate is set to 0.01. You might want to increase it."
 
-### What Sentry Config Analyzer Says:
+### What Sentry Copilot Says:
 > "**Problem: Insufficient Performance Data Capture**
 >
 > Your tracesSampleRate is set to 0.01 (1%), which means only 1 in 100 transactions are captured. This is why you're not seeing performance data in Sentry's Performance tab.
@@ -208,7 +208,7 @@ The analyzer searches the appropriate SDK repository based on your configuration
 **Generic AI Response:**
 > "Try using `Sentry.addBreadcrumb()` with a custom type parameter."
 
-**Sentry Config Analyzer with GitHub:**
+**Sentry Copilot with GitHub:**
 > "**Known Limitation**: Custom breadcrumb types are not yet supported in the Java SDK.
 >
 > 📌 **Related Feature Request**: [Add support for custom breadcrumb types](https://github.com/getsentry/sentry-java/issues/3958) - Status: **OPEN** (opened 2023)
@@ -330,7 +330,7 @@ For these cases, the tool will recommend consulting Sentry Support or your engin
 
 ## Summary
 
-The Sentry Config Analyzer is your specialized Sentry troubleshooting assistant that:
+The Sentry Copilot is your specialized Sentry troubleshooting assistant that:
 - ✅ Knows official Sentry docs
 - ✅ Recognizes common Sentry issues
 - ✅ Enforces Sentry best practices

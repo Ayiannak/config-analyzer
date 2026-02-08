@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Sentry Config Analyzer integrates with Sentry's open-source GitHub repositories to provide deeper context about known issues, feature requests, and community discussions. This helps distinguish between configuration errors and SDK limitations.
+The Sentry Copilot integrates with Sentry's open-source GitHub repositories to provide deeper context about known issues, feature requests, and community discussions. This helps distinguish between configuration errors and SDK limitations.
 
 ---
 

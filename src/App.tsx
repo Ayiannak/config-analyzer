@@ -18,7 +18,7 @@ function App() {
   const [configCode, setConfigCode] = useState('')
   const [issueContext, setIssueContext] = useState('')
   const [generalQuestion, setGeneralQuestion] = useState('')
-  const [generalAnswer, setGeneralAnswer] = useState('')
+  const [generalChatMessages, setGeneralChatMessages] = useState<ChatMessage[]>([])
   const [copiedAnswer, setCopiedAnswer] = useState(false)
   const [sdkType, setSdkType] = useState('JavaScript')
   const [model, setModel] = useState<'sonnet-4' | 'opus-4.5'>('opus-4.5')
@@ -26,7 +26,8 @@ function App() {
   const [useStreaming, setUseStreaming] = useState(true)
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState<AnalysisResult | null>(null)
-  const [thinking, setThinking] = useState('')
+  const [configThinking, setConfigThinking] = useState('')
+  const [generalThinking, setGeneralThinking] = useState('')
   const [streamingText, setStreamingText] = useState('')
   const [fixedConfig, setFixedConfig] = useState('')
   const [showChat, setShowChat] = useState(false)
@@ -249,7 +250,7 @@ function App() {
 
     setAnalyzing(true)
     setResult(null)
-    setThinking('')
+    setConfigThinking('')
     setStreamingText('')
     setFixedConfig('')
     setAnalysisProgress(0)
@@ -290,18 +291,18 @@ function App() {
           (event: StreamEvent) => {
             switch (event.type) {
               case 'thinking_start':
-                setThinking('🤔 Thinking deeply...')
+                setConfigThinking('🤔 Thinking deeply...')
                 setAnalysisProgress(10)
                 break
               case 'thinking':
                 thinkingText += event.content
-                setThinking(thinkingText)
+                setConfigThinking(thinkingText)
                 // Progress during thinking: 10% to 30%
                 const thinkingProgress = Math.min(30, 10 + (thinkingText.length / 100))
                 setAnalysisProgress(thinkingProgress)
                 break
               case 'thinking_complete':
-                setThinking(prev => prev + '\n\n✅ Analysis complete')
+                setConfigThinking(prev => prev + '\n\n✅ Analysis complete')
                 setAnalysisProgress(35)
                 break
               case 'progress':
@@ -353,7 +354,7 @@ function App() {
         setResult(maskedAnalysis)
 
         if (maskedAnalysis.thinking) {
-          setThinking(maskedAnalysis.thinking)
+          setConfigThinking(maskedAnalysis.thinking)
         }
 
         if (maskedAnalysis.completeFixedConfig) {
@@ -432,9 +433,12 @@ function App() {
     )
   }
 
-  const handleCopyAnswer = async () => {
+  const handleCopyLastAnswer = async () => {
+    const lastAssistantMessage = generalChatMessages.filter(m => m.role === 'assistant').pop()
+    if (!lastAssistantMessage) return
+
     try {
-      await navigator.clipboard.writeText(generalAnswer)
+      await navigator.clipboard.writeText(lastAssistantMessage.content)
       setCopiedAnswer(true)
       setTimeout(() => setCopiedAnswer(false), 2000)
     } catch (error) {
@@ -449,9 +453,18 @@ function App() {
       return
     }
 
+    // For the first message, include SDK context if provided
+    const isFirstMessage = generalChatMessages.length === 0
+    const messageContent = isFirstMessage && sdkType
+      ? `SDK Context: ${sdkType}\n\nQuestion: ${generalQuestion}`
+      : generalQuestion
+
+    const userMessage: ChatMessage = { role: 'user', content: messageContent }
+    const updatedMessages = [...generalChatMessages, userMessage]
+    setGeneralChatMessages(updatedMessages)
+    setGeneralQuestion('')
     setAnalyzing(true)
-    setGeneralAnswer('')
-    setThinking('')
+    setGeneralThinking('')
     setAnalysisProgress(0)
 
     const startTime = Date.now()
@@ -464,6 +477,7 @@ function App() {
           'query.sdk_type': sdkType,
           'query.model': model,
           'query.extended_thinking': useExtendedThinking,
+          'query.message_count': updatedMessages.length,
         }
       },
       async (span) => {
@@ -476,7 +490,7 @@ function App() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              question: generalQuestion,
+              messages: updatedMessages,
               sdkType,
               model,
               useExtendedThinking,
@@ -484,7 +498,9 @@ function App() {
           })
 
           if (!response.ok) {
-            throw new Error('Failed to process query')
+            const errorText = await response.text()
+            console.error('Server error:', response.status, errorText)
+            throw new Error(`Failed to process query: ${response.status} - ${errorText}`)
           }
 
           const reader = response.body?.getReader()
@@ -506,25 +522,26 @@ function App() {
 
                   switch (event.type) {
                     case 'thinking_start':
-                      setThinking('🤔 Thinking deeply...')
+                      setGeneralThinking('🤔 Thinking deeply...')
                       setAnalysisProgress(10)
                       break
                     case 'thinking':
                       thinkingText += event.content
-                      setThinking(thinkingText)
+                      setGeneralThinking(thinkingText)
                       setAnalysisProgress(Math.min(30, 10 + (thinkingText.length / 100)))
                       break
                     case 'thinking_complete':
-                      setThinking(prev => prev + '\n\n✅ Analysis complete')
+                      setGeneralThinking(prev => prev + '\n\n✅ Analysis complete')
                       setAnalysisProgress(35)
                       break
                     case 'text':
                       answerText += event.content
-                      setGeneralAnswer(answerText)
+                      // Update the last message in real-time
+                      setGeneralChatMessages([...updatedMessages, { role: 'assistant', content: answerText }])
                       setAnalysisProgress(Math.min(95, 35 + (answerText.length / 50)))
                       break
                     case 'complete':
-                      setGeneralAnswer(event.answer)
+                      setGeneralChatMessages([...updatedMessages, { role: 'assistant', content: event.answer }])
                       setAnalysisProgress(100)
                       break
                     case 'error':
@@ -555,7 +572,8 @@ function App() {
             },
             contexts: {
               query: {
-                question_length: generalQuestion.length,
+                question_length: userMessage.content.length,
+                message_count: updatedMessages.length,
               }
             },
             fingerprint: ['general-query-error', sdkType, model]
@@ -769,7 +787,7 @@ function App() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold mb-4 pb-2 bg-accent-gradient bg-clip-text text-transparent leading-tight">
-            Sentry Config Analyzer
+            Sentry Copilot
           </h1>
           <div className="flex items-center justify-center gap-3 mb-2">
             <span className="px-4 py-2 bg-purple-600/30 text-purple-300 rounded-full text-base font-semibold border border-purple-500/50">
@@ -785,9 +803,11 @@ function App() {
             <button
               onClick={() => {
                 setMode('config')
+                // Clear general Q&A state
                 setGeneralAnswer('')
                 setGeneralQuestion('')
-                setThinking('')
+                setGeneralChatMessages([])
+                setGeneralThinking('')
               }}
               className={`px-6 py-3 rounded-lg font-semibold transition-all ${
                 mode === 'config'
@@ -800,10 +820,9 @@ function App() {
             <button
               onClick={() => {
                 setMode('general')
-                setResult(null)
-                setGeneralAnswer('')
-                setThinking('')
                 // Clear config-related state to prevent any interference
+                setResult(null)
+                setConfigThinking('')
                 setFixedConfig('')
                 setChatMessages([])
                 setStreamingText('')
@@ -1172,29 +1191,51 @@ Leave empty for general config review`}
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Your Question
+                {generalChatMessages.length > 0 ? 'Ask a Follow-up' : 'Your Question'}
               </label>
-              <textarea
-                value={generalQuestion}
-                onChange={(e) => setGeneralQuestion(e.target.value)}
-                placeholder={`Ask anything about Sentry:
+              <div className="flex gap-2">
+                <textarea
+                  value={generalQuestion}
+                  onChange={(e) => setGeneralQuestion(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !analyzing && generalQuestion.trim()) {
+                      e.preventDefault()
+                      handleGeneralQuery()
+                    }
+                  }}
+                  placeholder={generalChatMessages.length > 0
+                    ? "Ask a follow-up question..."
+                    : `Ask anything about Sentry:
 - How do I set up source maps in Next.js?
 - Why aren't my errors showing up in Sentry?
-- What's the difference between tracesSampleRate and profilesSampleRate?
-- How do I bypass ad-blockers for Sentry?
-- What are best practices for sampling in production?
-- How do I configure session replay?`}
-                className="w-full h-64 px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-              />
+- What's the difference between tracesSampleRate and profilesSampleRate?`}
+                  className="flex-1 h-32 px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                  disabled={analyzing}
+                />
+              </div>
             </div>
 
-            <button
-              onClick={handleGeneralQuery}
-              disabled={analyzing || !generalQuestion.trim()}
-              className="w-full px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {analyzing ? '🔍 Processing...' : '🚀 Get Answer'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleGeneralQuery}
+                disabled={analyzing || !generalQuestion.trim()}
+                className="flex-1 px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {analyzing ? '⏳ Thinking...' : generalChatMessages.length > 0 ? '💬 Send' : '🚀 Ask'}
+              </button>
+              {generalChatMessages.length > 0 && (
+                <button
+                  onClick={() => {
+                    setGeneralChatMessages([])
+                    setGeneralQuestion('')
+                    setGeneralThinking('')
+                  }}
+                  className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-all"
+                >
+                  🔄 New
+                </button>
+              )}
+            </div>
 
             {/* Progress Bar */}
             {analyzing && (
@@ -1215,7 +1256,7 @@ Leave empty for general config review`}
         )}
 
         {/* Extended Thinking Display */}
-        {thinking && (
+        {((mode === 'config' && configThinking) || (mode === 'general' && generalThinking)) && (
           <div className="card p-6 mb-8">
             <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
               <span className="text-primary">🧠</span>
@@ -1223,7 +1264,7 @@ Leave empty for general config review`}
             </h2>
             <div className="bg-black p-4 rounded-lg border border-primary/30">
               <pre className="text-sm text-gray-300 whitespace-pre-wrap font-mono">
-                {thinking}
+                {mode === 'config' ? configThinking : generalThinking}
               </pre>
             </div>
           </div>
@@ -1244,73 +1285,96 @@ Leave empty for general config review`}
           </div>
         )}
 
-        {/* General Q&A Answer Display */}
-        {mode === 'general' && generalAnswer && (
+        {/* General Q&A Chat Display */}
+        {mode === 'general' && generalChatMessages.length > 0 && (
           <div className="card p-6 mb-8">
-            <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-              <span className="text-secondary">💡</span>
-              <span>Answer</span>
-            </h2>
-            <div className="bg-black p-6 rounded-lg border border-secondary/30">
-              <div className="prose prose-invert max-w-none text-gray-200 leading-relaxed">
-                <ReactMarkdown
-                  components={{
-                    a: ({ node, ...props }) => (
-                      <a
-                        {...props}
-                        className="text-blue-400 hover:text-blue-300 underline"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      />
-                    ),
-                    code: ({ node, inline, ...props }) => (
-                      inline ? (
-                        <code className="bg-gray-800 px-2 py-1 rounded text-sm text-purple-300" {...props} />
-                      ) : (
-                        <code className="block bg-gray-900 p-3 rounded text-sm text-green-300 overflow-x-auto" {...props} />
-                      )
-                    ),
-                    ul: ({ node, ...props }) => (
-                      <ul className="list-disc list-inside space-y-1 my-2" {...props} />
-                    ),
-                    ol: ({ node, ...props }) => (
-                      <ol className="list-decimal list-inside space-y-1 my-2" {...props} />
-                    ),
-                    h1: ({ node, ...props }) => (
-                      <h1 className="text-2xl font-bold mt-4 mb-2" {...props} />
-                    ),
-                    h2: ({ node, ...props }) => (
-                      <h2 className="text-xl font-bold mt-3 mb-2" {...props} />
-                    ),
-                    h3: ({ node, ...props }) => (
-                      <h3 className="text-lg font-bold mt-2 mb-1" {...props} />
-                    ),
-                    p: ({ node, ...props }) => (
-                      <p className="mb-3" {...props} />
-                    ),
-                  }}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-semibold flex items-center gap-2">
+                <span className="text-secondary">💬</span>
+                <span>Conversation</span>
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCopyLastAnswer}
+                  className="px-4 py-2 bg-primary/20 text-primary hover:bg-primary/30 rounded-lg font-semibold transition-all text-sm"
                 >
-                  {generalAnswer}
-                </ReactMarkdown>
+                  {copiedAnswer ? '✅ Copied!' : '📋 Copy Last Answer'}
+                </button>
+                <button
+                  onClick={() => {
+                    setGeneralChatMessages([])
+                    setGeneralQuestion('')
+                    setGeneralThinking('')
+                  }}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-all text-sm"
+                >
+                  🔄 New Conversation
+                </button>
               </div>
             </div>
-            <div className="mt-4 flex gap-3">
-              <button
-                onClick={() => {
-                  setGeneralQuestion('')
-                  setGeneralAnswer('')
-                  setThinking('')
-                }}
-                className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-all"
-              >
-                Ask Another Question
-              </button>
-              <button
-                onClick={handleCopyAnswer}
-                className="px-6 py-2 bg-primary/20 text-primary hover:bg-primary/30 rounded-lg font-semibold transition-all"
-              >
-                {copiedAnswer ? '✅ Copied!' : '📋 Copy Answer'}
-              </button>
+
+            <div className="bg-black rounded-lg border border-secondary/30 p-4 space-y-4 max-h-[600px] overflow-y-auto">
+              {generalChatMessages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`${msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] p-4 rounded-lg ${
+                      msg.role === 'user'
+                        ? 'bg-primary/20 text-gray-200 border border-primary/30'
+                        : 'bg-gray-800/50 text-gray-200 border border-gray-700'
+                    }`}
+                  >
+                    {msg.role === 'user' ? (
+                      <div className="text-sm">{msg.content}</div>
+                    ) : (
+                      <div className="prose prose-invert prose-sm max-w-none">
+                        <ReactMarkdown
+                          components={{
+                            a: ({ node, ...props }) => (
+                              <a
+                                {...props}
+                                className="text-blue-400 hover:text-blue-300 underline"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              />
+                            ),
+                            code: ({ node, inline, ...props }) => (
+                              inline ? (
+                                <code className="bg-gray-900 px-2 py-1 rounded text-sm text-purple-300" {...props} />
+                              ) : (
+                                <code className="block bg-black p-3 rounded text-sm text-green-300 overflow-x-auto my-2" {...props} />
+                              )
+                            ),
+                            ul: ({ node, ...props }) => (
+                              <ul className="list-disc list-inside space-y-1 my-2" {...props} />
+                            ),
+                            ol: ({ node, ...props }) => (
+                              <ol className="list-decimal list-inside space-y-1 my-2" {...props} />
+                            ),
+                            h1: ({ node, ...props }) => (
+                              <h1 className="text-xl font-bold mt-3 mb-2" {...props} />
+                            ),
+                            h2: ({ node, ...props }) => (
+                              <h2 className="text-lg font-bold mt-2 mb-1" {...props} />
+                            ),
+                            h3: ({ node, ...props }) => (
+                              <h3 className="text-base font-bold mt-2 mb-1" {...props} />
+                            ),
+                            p: ({ node, ...props }) => (
+                              <p className="mb-2" {...props} />
+                            ),
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
             </div>
           </div>
         )}

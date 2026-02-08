@@ -13,7 +13,7 @@ export interface MaskingResult {
 const SENSITIVE_PATTERNS = [
   {
     name: 'Sentry DSN',
-    pattern: /https?:\/\/[a-f0-9]{32}@[a-z0-9-]+\.ingest\.sentry\.io\/\d+/gi,
+    pattern: /https?:\/\/[a-f0-9]{32}@[a-z0-9-]+\.ingest(?:\.[a-z]+)?\.sentry\.io\/\d+/gi,
     mask: (match: string) => {
       const urlParts = match.split('@');
       return `${urlParts[0].slice(0, 10)}***MASKED_DSN***@${urlParts[1]}`;

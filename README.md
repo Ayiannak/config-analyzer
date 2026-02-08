@@ -1,4 +1,4 @@
-# 🔍 Sentry Config Analyzer
+# 🤖 Sentry Copilot
 
 A **specialized Sentry troubleshooting tool** powered by AI and trained on official Sentry docs. Unlike generic AI assistants, this tool has deep knowledge of Sentry-specific issues, best practices, and troubleshooting techniques.
 
