@@ -903,7 +903,6 @@ function App() {
                 const previousMode = mode
                 setMode('config')
                 // Clear general Q&A state
-                setGeneralAnswer('')
                 setGeneralQuestion('')
                 setGeneralChatMessages([])
                 setGeneralThinking('')
@@ -1272,79 +1271,70 @@ Leave empty for general config review`}
               </p>
             </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                SDK Type (Optional)
-              </label>
-              <select
-                value={sdkType}
-                onChange={(e) => handleSDKChange(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                <option value="">Select SDK (Optional)</option>
-                <option>JavaScript</option>
-                <option>Python</option>
-                <option>React Native</option>
-                <option>Flutter</option>
-                <option>iOS</option>
-                <option>Android</option>
-                <option>Ruby</option>
-                <option>PHP</option>
-                <option>Java</option>
-                <option>Go</option>
-                <option>.NET</option>
-                <option>Elixir</option>
-                <option>Rust</option>
-              </select>
-            </div>
+            {/* Initial input - only show when no messages yet */}
+            {generalChatMessages.length === 0 && (
+              <>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    SDK Type (Optional)
+                  </label>
+                  <select
+                    value={sdkType}
+                    onChange={(e) => handleSDKChange(e.target.value)}
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">Select SDK (Optional)</option>
+                    <option>JavaScript</option>
+                    <option>Python</option>
+                    <option>React Native</option>
+                    <option>Flutter</option>
+                    <option>iOS</option>
+                    <option>Android</option>
+                    <option>Ruby</option>
+                    <option>PHP</option>
+                    <option>Java</option>
+                    <option>Go</option>
+                    <option>.NET</option>
+                    <option>Elixir</option>
+                    <option>Rust</option>
+                  </select>
+                </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                {generalChatMessages.length > 0 ? 'Ask a Follow-up' : 'Your Question'}
-              </label>
-              <div className="flex gap-2">
-                <textarea
-                  value={generalQuestion}
-                  onChange={(e) => setGeneralQuestion(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && !analyzing && generalQuestion.trim()) {
-                      e.preventDefault()
-                      handleGeneralQuery()
-                    }
-                  }}
-                  placeholder={generalChatMessages.length > 0
-                    ? "Ask a follow-up question..."
-                    : `Ask anything about Sentry:
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Your Question
+                  </label>
+                  <div className="flex gap-2">
+                    <textarea
+                      value={generalQuestion}
+                      onChange={(e) => setGeneralQuestion(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey && !analyzing && generalQuestion.trim()) {
+                          e.preventDefault()
+                          handleGeneralQuery()
+                        }
+                      }}
+                      placeholder={`Ask anything about Sentry:
 - How do I set up source maps in Next.js?
 - Why aren't my errors showing up in Sentry?
 - What's the difference between tracesSampleRate and profilesSampleRate?`}
-                  className="flex-1 h-32 px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                  disabled={analyzing}
-                />
-              </div>
-            </div>
+                      className="flex-1 h-32 px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                      disabled={analyzing}
+                    />
+                  </div>
+                </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={handleGeneralQuery}
-                disabled={analyzing || !generalQuestion.trim()}
-                className="flex-1 px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                {analyzing ? '⏳ Thinking...' : generalChatMessages.length > 0 ? '💬 Send' : '🚀 Ask'}
-              </button>
-              {generalChatMessages.length > 0 && (
-                <button
-                  onClick={() => {
-                    setGeneralChatMessages([])
-                    setGeneralQuestion('')
-                    setGeneralThinking('')
-                  }}
-                  className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-all"
-                >
-                  🔄 New
-                </button>
-              )}
-            </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleGeneralQuery}
+                    disabled={analyzing || !generalQuestion.trim()}
+                    className="flex-1 px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    {analyzing ? '⏳ Thinking...' : '🚀 Ask'}
+                  </button>
+                </div>
+              </>
+            )}
 
             {/* Progress Bar */}
             {analyzing && (
@@ -1511,6 +1501,49 @@ Leave empty for general config review`}
                 </div>
               )}
             </div>
+
+            {/* Follow-up input at bottom of conversation - only show when there are messages */}
+            {generalChatMessages.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-700">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Ask a Follow-up
+                </label>
+                <div className="flex gap-2">
+                  <textarea
+                    value={generalQuestion}
+                    onChange={(e) => setGeneralQuestion(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && !analyzing && generalQuestion.trim()) {
+                        e.preventDefault()
+                        handleGeneralQuery()
+                      }
+                    }}
+                    placeholder="Ask a follow-up question..."
+                    className="flex-1 h-24 px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                    disabled={analyzing}
+                  />
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={handleGeneralQuery}
+                    disabled={analyzing || !generalQuestion.trim()}
+                    className="flex-1 px-6 py-3 bg-secondary text-white rounded-lg font-semibold hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    {analyzing ? '⏳ Thinking...' : '💬 Send'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setGeneralChatMessages([])
+                      setGeneralQuestion('')
+                      setGeneralThinking('')
+                    }}
+                    className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-all"
+                  >
+                    🔄 New
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
