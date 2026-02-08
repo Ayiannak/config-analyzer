@@ -19,6 +19,7 @@ function App() {
   const [issueContext, setIssueContext] = useState('')
   const [generalQuestion, setGeneralQuestion] = useState('')
   const [generalAnswer, setGeneralAnswer] = useState('')
+  const [copiedAnswer, setCopiedAnswer] = useState(false)
   const [sdkType, setSdkType] = useState('JavaScript')
   const [model, setModel] = useState<'sonnet-4' | 'opus-4.5'>('opus-4.5')
   const [useExtendedThinking, setUseExtendedThinking] = useState(true)
@@ -429,6 +430,17 @@ function App() {
         }
       }
     )
+  }
+
+  const handleCopyAnswer = async () => {
+    try {
+      await navigator.clipboard.writeText(generalAnswer)
+      setCopiedAnswer(true)
+      setTimeout(() => setCopiedAnswer(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy:', error)
+      alert('Failed to copy to clipboard')
+    }
   }
 
   const handleGeneralQuery = async () => {
@@ -1294,10 +1306,10 @@ Leave empty for general config review`}
                 Ask Another Question
               </button>
               <button
-                onClick={() => navigator.clipboard.writeText(generalAnswer)}
+                onClick={handleCopyAnswer}
                 className="px-6 py-2 bg-primary/20 text-primary hover:bg-primary/30 rounded-lg font-semibold transition-all"
               >
-                📋 Copy Answer
+                {copiedAnswer ? '✅ Copied!' : '📋 Copy Answer'}
               </button>
             </div>
           </div>

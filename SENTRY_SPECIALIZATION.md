@@ -2,7 +2,7 @@
 
 ## What Makes This Tool Different
 
-The Sentry Config Analyzer is **NOT** a generic AI code assistant. It is a **specialized Sentry troubleshooting expert** trained on official Sentry documentation and common Sentry-specific issues.
+The Sentry Config Analyzer is **NOT** a generic AI code assistant. It is a **specialized Sentry troubleshooting expert** trained on official Sentry docs and common Sentry-specific issues.
 
 ---
 
@@ -17,12 +17,13 @@ The Sentry Config Analyzer is **NOT** a generic AI code assistant. It is a **spe
 | May suggest incorrect Sentry patterns | Knows Sentry best practices |
 | Doesn't understand Sentry concepts | Deep knowledge of DSN, events, transactions, spans |
 | Can't diagnose Sentry-specific errors | Recognizes common Sentry issues and symptoms |
+| No access to SDK repositories | Searches GitHub for known issues and feature requests |
 
 ---
 
 ## Sentry Documentation Knowledge
 
-The analyzer has been trained on official Sentry documentation including:
+The analyzer has been trained on official Sentry docs including:
 
 ### Core Documentation
 - **docs.sentry.io** - Complete Sentry documentation
@@ -166,6 +167,78 @@ The analyzer can detect when issues are beyond automated analysis and require hu
 
 ---
 
+## GitHub Integration
+
+### Accessing Sentry's Open Source Knowledge Base
+
+The analyzer can search and reference Sentry's GitHub repositories to provide deeper context about:
+- Known issues and limitations
+- Feature requests and their status
+- Bug reports and workarounds
+- Community discussions
+- Upcoming features and roadmap items
+
+### When GitHub Integration Activates
+
+The analyzer automatically searches GitHub when:
+1. **Feature Doesn't Exist** - User tries to configure something not yet available
+2. **Known Bug/Limitation** - Behavior suggests a documented SDK issue
+3. **Unexpected Behavior** - Configuration seems correct but doesn't work as expected
+4. **Recent Changes** - Feature behavior may have changed in recent SDK versions
+5. **Workarounds Needed** - Official solution pending, but community has workarounds
+
+### Supported Repositories
+
+The analyzer searches the appropriate SDK repository based on your configuration:
+- **JavaScript/React/Vue/Angular**: [getsentry/sentry-javascript](https://github.com/getsentry/sentry-javascript)
+- **Python/Django/Flask**: [getsentry/sentry-python](https://github.com/getsentry/sentry-python)
+- **Ruby/Rails**: [getsentry/sentry-ruby](https://github.com/getsentry/sentry-ruby)
+- **Java/Kotlin/Android**: [getsentry/sentry-java](https://github.com/getsentry/sentry-java)
+- **PHP/Laravel**: [getsentry/sentry-php](https://github.com/getsentry/sentry-php)
+- **Go**: [getsentry/sentry-go](https://github.com/getsentry/sentry-go)
+- **.NET/C#**: [getsentry/sentry-dotnet](https://github.com/getsentry/sentry-dotnet)
+- **React Native**: [getsentry/sentry-react-native](https://github.com/getsentry/sentry-react-native)
+- **iOS/Swift**: [getsentry/sentry-cocoa](https://github.com/getsentry/sentry-cocoa)
+- **Dart/Flutter**: [getsentry/sentry-dart](https://github.com/getsentry/sentry-dart)
+
+### Example: GitHub-Enhanced Analysis
+
+**User Reports:** "Custom breadcrumb types not working in Java SDK"
+
+**Generic AI Response:**
+> "Try using `Sentry.addBreadcrumb()` with a custom type parameter."
+
+**Sentry Config Analyzer with GitHub:**
+> "**Known Limitation**: Custom breadcrumb types are not yet supported in the Java SDK.
+>
+> 📌 **Related Feature Request**: [Add support for custom breadcrumb types](https://github.com/getsentry/sentry-java/issues/3958) - Status: **OPEN** (opened 2023)
+>
+> This feature is being tracked by the Sentry team. You can:
+> - ⭐ Upvote the issue to show support
+> - 📝 Add your use case to help prioritize
+> - 🔔 Watch the issue for updates
+>
+> **Workaround**: Currently, you can only use the standard breadcrumb types: `default`, `debug`, `error`, `navigation`, `http`, `info`, `query`, `transaction`, `ui`, `user`."
+
+### Information Provided
+
+When linking to GitHub issues, the analyzer includes:
+- **Issue Title** - Clear description of the issue/feature
+- **Status** - Open or Closed
+- **Context** - Why this is relevant to your situation
+- **Actions** - What you can do (upvote, follow, implement workaround)
+- **Version Info** - If closed, which version includes the fix
+
+### Benefits
+
+✅ **Know if it's you or the SDK** - Distinguish configuration errors from SDK limitations
+✅ **Save time** - Avoid spending hours trying to make unsupported features work
+✅ **Stay informed** - Learn about upcoming features and their progress
+✅ **Find workarounds** - Access community solutions from GitHub discussions
+✅ **Influence roadmap** - Learn how to upvote features that matter to you
+
+---
+
 ## Integration with Sentry Features
 
 The analyzer understands and references:
@@ -258,7 +331,7 @@ For these cases, the tool will recommend consulting Sentry Support or your engin
 ## Summary
 
 The Sentry Config Analyzer is your specialized Sentry troubleshooting assistant that:
-- ✅ Knows official Sentry documentation
+- ✅ Knows official Sentry docs
 - ✅ Recognizes common Sentry issues
 - ✅ Enforces Sentry best practices
 - ✅ References Sentry-specific concepts

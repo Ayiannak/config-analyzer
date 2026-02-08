@@ -1,6 +1,6 @@
 # 🔍 Sentry Config Analyzer
 
-A **specialized Sentry troubleshooting tool** powered by AI and trained on official Sentry documentation. Unlike generic AI assistants, this tool has deep knowledge of Sentry-specific issues, best practices, and troubleshooting techniques.
+A **specialized Sentry troubleshooting tool** powered by AI and trained on official Sentry docs. Unlike generic AI assistants, this tool has deep knowledge of Sentry-specific issues, best practices, and troubleshooting techniques.
 
 Perfect for customer support, sales engineering calls, and debugging Sentry SDK configurations.
 
@@ -24,8 +24,10 @@ See [SENTRY_SPECIALIZATION.md](./SENTRY_SPECIALIZATION.md) for detailed comparis
 - ✅ See what's configured correctly (per Sentry best practices)
 - ❌ Identify problems with Sentry-specific fix suggestions
 - 💡 Get optimization recommendations based on official docs
+- 🔗 **GitHub Integration** - Links to relevant Sentry issues, discussions, and feature requests
 - 🎯 Automatic complexity assessment for human escalation
 - 📊 Full Sentry integration for error tracking and metrics
+- 🔒 Automatic masking of DSNs, API keys, and sensitive data
 
 ## Setup
 
