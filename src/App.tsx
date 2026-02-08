@@ -541,6 +541,10 @@ function App() {
           let thinkingText = ''
           let answerText = ''
 
+          // Add timeout to prevent indefinite hanging
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minute timeout
+
           const response = await fetch('http://localhost:3001/api/general-query', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -550,7 +554,10 @@ function App() {
               model,
               useExtendedThinking,
             }),
+            signal: controller.signal,
           })
+
+          clearTimeout(timeoutId)
 
           if (!response.ok) {
             const errorText = await response.text()
@@ -614,7 +621,18 @@ function App() {
           span.setAttribute('query.success', true)
         } catch (error) {
           console.error('Query error:', error)
-          alert(`Error processing question: ${error instanceof Error ? error.message : 'Unknown error'}`)
+
+          // Better error message for timeout
+          let errorMessage = 'Unknown error'
+          if (error instanceof Error) {
+            if (error.name === 'AbortError') {
+              errorMessage = 'Request timed out after 2 minutes. Please try again with a simpler question or without extended thinking.'
+            } else {
+              errorMessage = error.message
+            }
+          }
+
+          alert(`Error processing question: ${errorMessage}`)
 
           // Track error in analytics
           trackQueryError(error instanceof Error ? error : new Error('Unknown error'), {
@@ -1253,9 +1271,6 @@ Leave empty for general config review`}
                 Get expert answers about Sentry without needing to provide a config. Ask about features, troubleshooting, best practices, or any Sentry-related topic.
               </p>
             </div>
-            <p className="text-gray-400 text-sm mb-4">
-              Get expert answers about Sentry without needing to provide a config. Ask about features, troubleshooting, best practices, or any Sentry-related topic.
-            </p>
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -1480,6 +1495,21 @@ Leave empty for general config review`}
                 </div>
               ))}
               <div ref={chatEndRef} />
+
+              {/* Support contact section */}
+              {generalChatMessages.length > 0 && (
+                <div className="mt-4 p-4 bg-gray-800/30 border border-primary/20 rounded-lg">
+                  <p className="text-gray-400 text-sm mb-2">
+                    💡 Need more detailed help or have a complex issue?
+                  </p>
+                  <a
+                    href="mailto:support@sentry.io?subject=Question about Sentry"
+                    className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-semibold text-sm transition-all"
+                  >
+                    ✉️ Contact Sentry Support →
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1503,6 +1533,21 @@ Leave empty for general config review`}
                       <p className="text-white font-semibold mb-2">📋 Recommended Action:</p>
                       <p className="text-gray-300">{result.complexityAssessment.recommendedAction}</p>
                     </div>
+
+                    {/* Support Contact CTA */}
+                    <div className="mt-4 bg-primary/10 border border-primary/30 rounded-lg p-4">
+                      <p className="text-white font-semibold mb-2">🤝 Need Expert Help?</p>
+                      <p className="text-gray-300 mb-3">
+                        For complex configurations like this, our support team can provide personalized guidance.
+                      </p>
+                      <a
+                        href="mailto:support@sentry.io?subject=Configuration Assistance Request"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary/90 transition-all"
+                      >
+                        ✉️ Contact Sentry Support
+                      </a>
+                    </div>
+
                     <p className="text-gray-400 text-sm mt-3">
                       💡 While the AI analysis below provides guidance, this configuration requires expertise to implement safely.
                     </p>

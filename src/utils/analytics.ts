@@ -61,19 +61,14 @@ export function trackQuerySubmitted(data: QueryAnalytics) {
     }
   });
 
-  // Increment metrics for time-series analysis
-  Sentry.metrics.increment('copilot.query.submitted', 1, {
-    tags: {
-      mode: data.mode,
-      sdk_type: data.sdkType || 'none',
-      model: data.model,
-      extended_thinking: data.extendedThinking.toString(),
-    }
-  });
+  // Note: Sentry.metrics is only available in Node SDK, not browser SDK
+  // Metrics are tracked via events which Sentry can aggregate
 
   // Track follow-up questions separately
   if (data.conversationLength && data.conversationLength > 1) {
-    Sentry.metrics.increment('copilot.query.follow_up', 1, {
+    Sentry.captureEvent({
+      message: 'Follow-up Question',
+      level: 'info',
       tags: {
         mode: data.mode,
         conversation_depth: data.conversationLength.toString(),
@@ -86,24 +81,7 @@ export function trackQuerySubmitted(data: QueryAnalytics) {
  * Track query completion with performance data
  */
 export function trackQueryCompleted(data: PerformanceAnalytics) {
-  Sentry.metrics.distribution('copilot.query.duration', data.duration, {
-    unit: 'millisecond',
-    tags: {
-      operation: data.operation,
-      model: data.model,
-    }
-  });
-
-  if (data.thinkingTokens) {
-    Sentry.metrics.distribution('copilot.thinking.tokens', data.thinkingTokens, {
-      unit: 'none',
-      tags: {
-        model: data.model,
-      }
-    });
-  }
-
-  // Track cost-relevant metrics
+  // Track cost-relevant metrics via events (metrics API not available in browser SDK)
   Sentry.captureEvent({
     message: 'Query Completed',
     level: 'info',
@@ -125,21 +103,20 @@ export function trackQueryCompleted(data: PerformanceAnalytics) {
  * Track user outcomes/engagement
  */
 export function trackOutcome(data: OutcomeAnalytics) {
-  Sentry.metrics.increment(`copilot.outcome.${data.action}`, 1, {
+  // Track engagement action
+  const actionName = data.action.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+  Sentry.captureEvent({
+    message: `User Action: ${actionName}`,
+    level: 'info',
     tags: {
       mode: data.mode,
-    }
+      action: data.action,
+    },
   });
 
   // For conversation tracking
   if (data.action === 'new_conversation' && data.conversationLength) {
-    Sentry.metrics.distribution('copilot.conversation.length', data.conversationLength, {
-      unit: 'none',
-      tags: {
-        mode: data.mode,
-      }
-    });
-
     Sentry.captureEvent({
       message: 'Conversation Ended',
       level: 'info',
@@ -195,12 +172,6 @@ export function trackComplexityAssessment(data: ComplexityAnalytics) {
         }
       }
     });
-
-    Sentry.metrics.increment('copilot.complexity.human_review_needed', 1, {
-      tags: {
-        sdk_type: data.sdkType || 'unknown',
-      }
-    });
   }
 }
 
@@ -208,24 +179,7 @@ export function trackComplexityAssessment(data: ComplexityAnalytics) {
  * Track common Sentry issues found (product insights gold mine)
  */
 export function trackIssuesFound(problems: Array<{ title: string; severity?: string }>, sdkType?: string) {
-  // Track each problem type for trend analysis
-  problems.forEach(problem => {
-    // Sanitize title to avoid PII while keeping useful info
-    const sanitizedTitle = problem.title
-      .replace(/\d+/g, 'N') // Replace numbers
-      .replace(/["'].*?["']/g, '""') // Replace quoted strings
-      .toLowerCase();
-
-    Sentry.metrics.increment('copilot.issue.found', 1, {
-      tags: {
-        sdk_type: sdkType || 'unknown',
-        severity: problem.severity || 'unknown',
-        issue_type: sanitizedTitle.slice(0, 50), // Truncate for cardinality
-      }
-    });
-  });
-
-  // Summary event
+  // Summary event with all issues
   Sentry.captureEvent({
     message: 'Configuration Issues Identified',
     level: 'info',
@@ -237,6 +191,14 @@ export function trackIssuesFound(problems: Array<{ title: string; severity?: str
       issues: {
         count: problems.length,
         severities: problems.map(p => p.severity || 'unknown'),
+        types: problems.map(p => {
+          // Sanitize titles to avoid PII
+          return p.title
+            .replace(/\d+/g, 'N')
+            .replace(/["'].*?["']/g, '""')
+            .toLowerCase()
+            .slice(0, 50);
+        }),
         sdk_type: sdkType,
       }
     }
@@ -247,17 +209,19 @@ export function trackIssuesFound(problems: Array<{ title: string; severity?: str
  * Track mode switching patterns
  */
 export function trackModeSwitch(from: 'config' | 'general', to: 'config' | 'general') {
-  Sentry.metrics.increment('copilot.mode.switch', 1, {
-    tags: {
-      from,
-      to,
-    }
-  });
-
   Sentry.addBreadcrumb({
     category: 'navigation',
     message: `Switched from ${from} to ${to} mode`,
     level: 'info',
+  });
+
+  Sentry.captureEvent({
+    message: 'Mode Switch',
+    level: 'info',
+    tags: {
+      from_mode: from,
+      to_mode: to,
+    }
   });
 }
 
@@ -265,7 +229,9 @@ export function trackModeSwitch(from: 'config' | 'general', to: 'config' | 'gene
  * Track SDK type usage patterns
  */
 export function trackSDKSelection(sdkType: string, mode: 'config' | 'general') {
-  Sentry.metrics.increment('copilot.sdk.selected', 1, {
+  Sentry.captureEvent({
+    message: 'SDK Selected',
+    level: 'info',
     tags: {
       sdk_type: sdkType,
       mode,
@@ -285,12 +251,5 @@ export function trackQueryError(error: Error, context: { mode: string; model: st
       sdk_type: context.sdkType || 'unknown',
     },
     level: 'error',
-  });
-
-  Sentry.metrics.increment('copilot.query.error', 1, {
-    tags: {
-      mode: context.mode,
-      model: context.model,
-    }
   });
 }
